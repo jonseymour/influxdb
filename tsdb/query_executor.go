@@ -547,6 +547,38 @@ func (q *QueryExecutor) filterShowSeriesResult(limit, offset int, rows influxql.
 	return filteredSeries
 }
 
+// PlanShowMeasurements creates an execution plan for the given SelectStatement and returns an Executor.
+func (q *QueryExecutor) PlanShowMeasurements(stmt *influxql.ShowMeasurementsStatement, database string, chunkSize int) (*Executor, error) {
+	// Get the database info.
+	di, err := q.MetaStore.Database(database)
+	if err != nil {
+		return nil, err
+	} else if di == nil {
+		return nil, ErrDatabaseNotFound(database)
+	}
+
+	// Get info for all shards in the database.
+	shards := di.ShardInfos()
+
+	// Build the Mappers, one per shard.
+	mappers := []Mapper{}
+	for _, sh := range shards {
+		m, err := q.ShardMapper.CreateMapper(sh, stmt.String(), chunkSize)
+		if err != nil {
+			return nil, err
+		}
+		if m == nil {
+			// No data for this shard, skip it.
+			continue
+		}
+		mappers = append(mappers, m)
+	}
+
+	//executor := NewExecutor(stmt, mappers, chunkSize)
+	//return executor, nil
+	return nil, nil
+}
+
 func (q *QueryExecutor) executeShowMeasurementsStatement(stmt *influxql.ShowMeasurementsStatement, database string) *influxql.Result {
 	// Find the database.
 	db := q.Store.DatabaseIndex(database)
