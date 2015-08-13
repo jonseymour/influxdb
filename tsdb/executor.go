@@ -53,7 +53,7 @@ func (sm *StatefulMapper) NextChunk() (*MapperOutput, error) {
 	return chunk, nil
 }
 
-type Executor struct {
+type SelectExecutor struct {
 	stmt           *influxql.SelectStatement
 	mappers        []*StatefulMapper
 	chunkSize      int
@@ -61,12 +61,12 @@ type Executor struct {
 }
 
 // NewRawExecutor returns a new RawExecutor.
-func NewExecutor(stmt *influxql.SelectStatement, mappers []Mapper, chunkSize int) *Executor {
+func NewSelectExecutor(stmt *influxql.SelectStatement, mappers []Mapper, chunkSize int) *SelectExecutor {
 	a := []*StatefulMapper{}
 	for _, m := range mappers {
 		a = append(a, &StatefulMapper{m, nil, false})
 	}
-	return &Executor{
+	return &SelectExecutor{
 		stmt:           stmt,
 		mappers:        a,
 		chunkSize:      chunkSize,
@@ -75,7 +75,7 @@ func NewExecutor(stmt *influxql.SelectStatement, mappers []Mapper, chunkSize int
 }
 
 // Execute begins execution of the query and returns a channel to receive rows.
-func (e *Executor) Execute() <-chan *influxql.Row {
+func (e *SelectExecutor) Execute() <-chan *influxql.Row {
 	// Create output channel and stream data in a separate goroutine.
 	out := make(chan *influxql.Row, 0)
 
@@ -93,7 +93,7 @@ func (e *Executor) Execute() <-chan *influxql.Row {
 }
 
 // mappersDrained returns whether all the executors Mappers have been drained of data.
-func (e *Executor) mappersDrained() bool {
+func (e *SelectExecutor) mappersDrained() bool {
 	for _, m := range e.mappers {
 		if !m.drained {
 			return false
@@ -103,7 +103,7 @@ func (e *Executor) mappersDrained() bool {
 }
 
 // nextMapperTagset returns the alphabetically lowest tagset across all Mappers.
-func (e *Executor) nextMapperTagSet() string {
+func (e *SelectExecutor) nextMapperTagSet() string {
 	tagset := ""
 	for _, m := range e.mappers {
 		if m.bufferedChunk != nil {
@@ -118,7 +118,7 @@ func (e *Executor) nextMapperTagSet() string {
 }
 
 // nextMapperLowestTime returns the lowest minimum time across all Mappers, for the given tagset.
-func (e *Executor) nextMapperLowestTime(tagset string) int64 {
+func (e *SelectExecutor) nextMapperLowestTime(tagset string) int64 {
 	minTime := int64(math.MaxInt64)
 	for _, m := range e.mappers {
 		if !m.drained && m.bufferedChunk != nil {
@@ -135,17 +135,17 @@ func (e *Executor) nextMapperLowestTime(tagset string) int64 {
 }
 
 // tagSetIsLimited returns whether data for the given tagset has been LIMITed.
-func (e *Executor) tagSetIsLimited(tagset string) bool {
+func (e *SelectExecutor) tagSetIsLimited(tagset string) bool {
 	_, ok := e.limitedTagSets[tagset]
 	return ok
 }
 
 // limitTagSet marks the given taset as LIMITed.
-func (e *Executor) limitTagSet(tagset string) {
+func (e *SelectExecutor) limitTagSet(tagset string) {
 	e.limitedTagSets[tagset] = struct{}{}
 }
 
-func (e *Executor) executeRaw(out chan *influxql.Row) {
+func (e *SelectExecutor) executeRaw(out chan *influxql.Row) {
 	// It's important that all resources are released when execution completes.
 	defer e.close()
 
@@ -327,7 +327,7 @@ func (e *Executor) executeRaw(out chan *influxql.Row) {
 	close(out)
 }
 
-func (e *Executor) executeAggregate(out chan *influxql.Row) {
+func (e *SelectExecutor) executeAggregate(out chan *influxql.Row) {
 	// It's important to close all resources when execution completes.
 	defer e.close()
 
@@ -491,7 +491,7 @@ func (e *Executor) executeAggregate(out chan *influxql.Row) {
 
 // processFill will take the results and return new results (or the same if no fill modifications are needed)
 // with whatever fill options the query has.
-func (e *Executor) processFill(results [][]interface{}) [][]interface{} {
+func (e *SelectExecutor) processFill(results [][]interface{}) [][]interface{} {
 	// don't do anything if we're supposed to leave the nulls
 	if e.stmt.Fill == influxql.NullFill {
 		return results
@@ -537,7 +537,7 @@ func (e *Executor) processFill(results [][]interface{}) [][]interface{} {
 }
 
 // processDerivative returns the derivatives of the results
-func (e *Executor) processDerivative(results [][]interface{}) [][]interface{} {
+func (e *SelectExecutor) processDerivative(results [][]interface{}) [][]interface{} {
 	// Return early if we're not supposed to process the derivatives
 	if e.stmt.HasDerivative() {
 		interval, err := derivativeInterval(e.stmt)
@@ -554,7 +554,7 @@ func (e *Executor) processDerivative(results [][]interface{}) [][]interface{} {
 
 // Close closes the executor such that all resources are released. Once closed,
 // an executor may not be re-used.
-func (e *Executor) close() {
+func (e *SelectExecutor) close() {
 	if e != nil {
 		for _, m := range e.mappers {
 			m.Close()

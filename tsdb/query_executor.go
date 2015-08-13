@@ -199,7 +199,7 @@ func (q *QueryExecutor) ExecuteQuery(query *influxql.Query, database string, chu
 }
 
 // Plan creates an execution plan for the given SelectStatement and returns an Executor.
-func (q *QueryExecutor) Plan(stmt *influxql.SelectStatement, chunkSize int) (*Executor, error) {
+func (q *QueryExecutor) PlanSelect(stmt *influxql.SelectStatement, chunkSize int) (*SelectExecutor, error) {
 	shards := map[uint64]meta.ShardInfo{} // Shards requiring mappers.
 
 	// Replace instances of "now()" with the current time, and check the resultant times.
@@ -245,14 +245,14 @@ func (q *QueryExecutor) Plan(stmt *influxql.SelectStatement, chunkSize int) (*Ex
 		mappers = append(mappers, m)
 	}
 
-	executor := NewExecutor(stmt, mappers, chunkSize)
+	executor := NewSelectExecutor(stmt, mappers, chunkSize)
 	return executor, nil
 }
 
 // executeSelectStatement plans and executes a select statement against a database.
 func (q *QueryExecutor) executeSelectStatement(statementID int, stmt *influxql.SelectStatement, results chan *influxql.Result, chunkSize int) error {
 	// Plan statement execution.
-	e, err := q.Plan(stmt, chunkSize)
+	e, err := q.PlanSelect(stmt, chunkSize)
 	if err != nil {
 		return err
 	}

@@ -138,7 +138,7 @@ func TestWritePointsAndExecuteTwoShards(t *testing.T) {
 			t.Logf("Skipping test %s", tt.stmt)
 			continue
 		}
-		executor, err := query_executor.Plan(mustParseSelectStatement(tt.stmt), tt.chunkSize)
+		executor, err := query_executor.PlanSelect(mustParseSelectStatement(tt.stmt), tt.chunkSize)
 		if err != nil {
 			t.Fatalf("failed to plan query: %s", err.Error())
 		}
@@ -237,7 +237,7 @@ func TestWritePointsAndExecuteTwoShardsAlign(t *testing.T) {
 			t.Logf("Skipping test %s", tt.stmt)
 			continue
 		}
-		executor, err := query_executor.Plan(mustParseSelectStatement(tt.stmt), tt.chunkSize)
+		executor, err := query_executor.PlanSelect(mustParseSelectStatement(tt.stmt), tt.chunkSize)
 		if err != nil {
 			t.Fatalf("failed to plan query: %s", err.Error())
 		}
@@ -309,7 +309,7 @@ func TestWritePointsAndExecuteTwoShardsQueryRewrite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create mapper1: %s", err.Error())
 		}
-		executor := tsdb.NewExecutor(parsedSelectStmt, []tsdb.Mapper{mapper0, mapper1}, tt.chunkSize)
+		executor := tsdb.NewSelectExecutor(parsedSelectStmt, []tsdb.Mapper{mapper0, mapper1}, tt.chunkSize)
 
 		// Check the results.
 		got := executeAndGetResults(executor)
@@ -416,7 +416,7 @@ func TestWritePointsAndExecuteTwoShardsTagSetOrdering(t *testing.T) {
 			t.Logf("Skipping test %s", tt.stmt)
 			continue
 		}
-		executor, err := query_executor.Plan(mustParseSelectStatement(tt.stmt), tt.chunkSize)
+		executor, err := query_executor.PlanSelect(mustParseSelectStatement(tt.stmt), tt.chunkSize)
 		if err != nil {
 			t.Fatalf("failed to plan query: %s", err.Error())
 		}
@@ -971,7 +971,7 @@ func (t *testQEShardMapper) CreateMapper(shard meta.ShardInfo, stmt string, chun
 	return t.store.CreateMapper(shard.ID, stmt, chunkSize)
 }
 
-func executeAndGetResults(executor *tsdb.Executor) string {
+func executeAndGetResults(executor *tsdb.SelectExecutor) string {
 	ch := executor.Execute()
 
 	var rows []*influxql.Row
