@@ -198,8 +198,8 @@ func (q *QueryExecutor) ExecuteQuery(query *influxql.Query, database string, chu
 	return results, nil
 }
 
-// Plan creates an execution plan for the given SelectStatement and returns an Executor.
-func (q *QueryExecutor) PlanSelect(stmt *influxql.SelectStatement, chunkSize int) (*SelectExecutor, error) {
+// PlanSelect creates an execution plan for the given SelectStatement and returns an Executor.
+func (q *QueryExecutor) PlanSelect(stmt *influxql.SelectStatement, chunkSize int) (Executor, error) {
 	shards := map[uint64]meta.ShardInfo{} // Shards requiring mappers.
 
 	// Replace instances of "now()" with the current time, and check the resultant times.

@@ -53,6 +53,10 @@ func (sm *StatefulMapper) NextChunk() (*MapperOutput, error) {
 	return chunk, nil
 }
 
+type Executor interface {
+	Execute() <-chan *influxql.Row
+}
+
 type SelectExecutor struct {
 	stmt           *influxql.SelectStatement
 	mappers        []*StatefulMapper
