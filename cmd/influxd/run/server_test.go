@@ -10,6 +10,50 @@ import (
 	"time"
 )
 
+// Ensure the server can have a database with multiple measurements.
+func TestServer_Query_Multiple_ShowMeasurements(t *testing.T) {
+	t.Parallel()
+	s := OpenServer(NewConfig(), "")
+	defer s.Close()
+
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 1*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Make sure we do writes for measurements that will span across shards
+	writes := []string{
+		fmt.Sprintf("cpu,host=server01 value=100,core=4 %d", mustParseTime(time.RFC3339Nano, "2000-01-01T00:00:00Z").UnixNano()),
+		fmt.Sprintf("cpu1,host=server02 value=50,core=2 %d", mustParseTime(time.RFC3339Nano, "2015-01-01T00:00:00Z").UnixNano()),
+	}
+	test := NewTest("db0", "rp0")
+	test.write = strings.Join(writes, "\n")
+
+	test.addQueries([]*Query{
+		&Query{
+			name:    "measurement in one shard but not another shouldn't panic server",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SHOW MEASUREMENTS`,
+			exp:     `{"results":[{"series":[{"name":"measurements","columns":["name"],"values":[["cpu"],["cpu1"]]}]}]}`,
+		},
+	}...)
+
+	if err := test.init(s); err != nil {
+		t.Fatalf("test init failed: %s", err)
+	}
+
+	for _, query := range test.queries {
+		if query.skip {
+			t.Logf("SKIP:: %s", query.name)
+			continue
+		}
+		if err := query.Execute(s); err != nil {
+			t.Error(query.Error(err))
+		} else if !query.success() {
+			t.Error(query.failureMessage())
+		}
+	}
+}
+
 // Ensure that HTTP responses include the InfluxDB version.
 func TestServer_HTTPResponseVersion(t *testing.T) {
 	version := "v1234"

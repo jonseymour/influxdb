@@ -38,46 +38,94 @@ func (mo *MapperOutput) key() string {
 	return formMeasurementTagSetKey(mo.Name, mo.Tags)
 }
 
-//type Mapper interface {
-//	Open() error
-//	TagSets() []string
-//	Fields() []string
-//	NextChunk() (interface{}, error)
-//	Close()
-//}
+// Mapper is the interface all Mapper types must implement.
+type Mapper interface {
+	Open() error
+	TagSets() []string
+	Fields() []string
+	NextChunk() (interface{}, error)
+	CurrChunk() interface{}
+	Drained() bool
+	Close()
+}
 
-type LocalMetaMapper struct {
+type MetaMapper struct {
 	shard     *Shard
 	stmt      influxql.Statement
 	chunkSize int
+	currChunk interface{}
+	state     interface{}
+	drained   bool
 }
 
-// NewLocalMetaMapper returns a mapper for the given shard, which will return data for the meta statement.
-func NewLocalMetaMapper(shard *Shard, stmt influxql.Statement, chunkSize int) *LocalMetaMapper {
-	return &LocalMetaMapper{
+// NewMetaMapper returns a mapper for the given shard, which will return data for the meta statement.
+func NewMetaMapper(shard *Shard, stmt influxql.Statement, chunkSize int) *MetaMapper {
+	return &MetaMapper{
 		shard:     shard,
 		stmt:      stmt,
 		chunkSize: chunkSize,
 	}
 }
 
-func (lmm *LocalMetaMapper) Open() error { return nil }
+func (mm *MetaMapper) Open() error {
+	// Build a sorted list of measurement names available on this shard.
+	names := make([]string, 0, len(mm.shard.measurementFields))
+	for k := range mm.shard.measurementFields {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	// Create a channel to send measurement names on.
+	ch := make(chan string)
+	// Start a goroutine to send the names over the channel as needed.
+	go func() {
+		for _, n := range names {
+			ch <- n
+		}
+		close(ch)
+	}()
 
-func (lmm *LocalMetaMapper) TagSets() []string { return nil }
+	// Store the channel as the state of the mapper.
+	mm.state = ch
 
-func (lmm *LocalMetaMapper) Fields() []string {
+	return nil
+}
+
+func (mm *MetaMapper) TagSets() []string { return nil }
+
+func (mm *MetaMapper) Fields() []string {
 	return []string{"name"}
 }
 
-func (lmm *LocalMetaMapper) NextChunk() (interface{}, error) {
-	fields := []string{}
-	for k := range lmm.shard.measurementFields {
-		fields = append(fields, k)
+func (mm *MetaMapper) NextChunk() (interface{}, error) {
+	// Allocate array to hold measurement names.
+	names := make([]string, 0, mm.chunkSize)
+	// Get the channel of measurement names from the state.
+	measurementNames := mm.state.(chan string)
+	// Get the next chunk of names.
+	for n := range measurementNames {
+		names = append(names, n)
+		if len(names) == mm.chunkSize {
+			break
+		}
 	}
-	return fields, nil
+	// See if we've read all the names.
+	if len(names) == 0 {
+		mm.drained = true
+		mm.currChunk = nil
+		return nil, nil
+	}
+
+	// Store the current chunk.
+	mm.currChunk = names
+
+	return names, nil
 }
 
-func (lmm *LocalMetaMapper) Close() {}
+func (mm *MetaMapper) CurrChunk() (interface{}, error) { return mm.currChunk }
+
+func (mm *MetaMapper) Drained() bool { return mm.Drained }
+
+func (mm *MetaMapper) Close() {}
 
 // LocalMapper is for retrieving data for a query, from a given shard.
 type LocalMapper struct {
@@ -94,6 +142,8 @@ type LocalMapper struct {
 	selectTags      []string        // tag keys that occur in the select clause
 	cursors         []*tagSetCursor // Cursors per tag sets.
 	currCursorIndex int             // Current tagset cursor being drained.
+	bufferedChunk   *MapperOutput   // Last read chunk.
+	drained         bool
 
 	// The following attributes are only used when mappers are for aggregate queries.
 
@@ -305,6 +355,7 @@ func (lm *LocalMapper) nextChunkRaw() (*MapperOutput, error) {
 	for {
 		if lm.currCursorIndex == len(lm.cursors) {
 			// All tagset cursors processed. NextChunk'ing complete.
+			lm.drained = true
 			return nil, nil
 		}
 		cursor := lm.cursors[lm.currCursorIndex]
@@ -315,6 +366,7 @@ func (lm *LocalMapper) nextChunkRaw() (*MapperOutput, error) {
 			lm.currCursorIndex++
 			if output != nil {
 				// There is data, so return it and continue when next called.
+				lm.bufferedChunk = output
 				return output, nil
 			} else {
 				// Just go straight to the next cursor.
@@ -332,6 +384,7 @@ func (lm *LocalMapper) nextChunkRaw() (*MapperOutput, error) {
 		value := &MapperValue{Time: k, Value: v, Tags: t}
 		output.Values = append(output.Values, value)
 		if len(output.Values) == lm.chunkSize {
+			lm.bufferedChunk = output
 			return output, nil
 		}
 	}

@@ -21,39 +21,6 @@ const (
 	IgnoredChunkSize = 0
 )
 
-// Mapper is the interface all Mapper types must implement.
-type Mapper interface {
-	Open() error
-	TagSets() []string
-	Fields() []string
-	NextChunk() (interface{}, error)
-	Close()
-}
-
-// StatefulMapper encapsulates a Mapper and some state that the executor needs to
-// track for that mapper.
-type StatefulMapper struct {
-	Mapper
-	bufferedChunk *MapperOutput // Last read chunk.
-	drained       bool
-}
-
-// NextChunk wraps a RawMapper and some state.
-func (sm *StatefulMapper) NextChunk() (interface{}, error) {
-	return sm.Mapper.NextChunk()
-	//c, err := sm.Mapper.NextChunk()
-	//if err != nil {
-	//	return nil, err
-	//}
-	//chunk, ok := c.(*MapperOutput)
-	//if !ok {
-	//	if chunk == interface{}(nil) {
-	//		return nil, nil
-	//	}
-	//}
-	//return chunk, nil
-}
-
 type Executor interface {
 	Execute() <-chan *influxql.Row
 }
@@ -70,37 +37,6 @@ func NewShowMeasurementsExecutor(stmt *influxql.ShowMeasurementsStatement, mappe
 		stmt:      stmt,
 		mappers:   mappers,
 		chunkSize: chunkSize,
-	}
-}
-
-// Close closes the executor such that all resources are released. Once closed,
-// an executor may not be re-used.
-func (e *ShowMeasurementsExecutor) close() {
-	if e != nil {
-		for _, m := range e.mappers {
-			m.Close()
-		}
-	}
-}
-
-type SelectExecutor struct {
-	stmt           *influxql.SelectStatement
-	mappers        []*StatefulMapper
-	chunkSize      int
-	limitedTagSets map[string]struct{} // Set tagsets for which data has reached the LIMIT.
-}
-
-// NewRawExecutor returns a new RawExecutor.
-func NewSelectExecutor(stmt *influxql.SelectStatement, mappers []Mapper, chunkSize int) *SelectExecutor {
-	a := []*StatefulMapper{}
-	for _, m := range mappers {
-		a = append(a, &StatefulMapper{m, nil, false})
-	}
-	return &SelectExecutor{
-		stmt:           stmt,
-		mappers:        a,
-		chunkSize:      chunkSize,
-		limitedTagSets: make(map[string]struct{}),
 	}
 }
 
@@ -126,17 +62,94 @@ func (e *ShowMeasurementsExecutor) Execute() <-chan *influxql.Row {
 		// Used to read ahead chunks from mappers.
 		var rowWriter *limitedRowWriter
 
+		// Create a set to hold measurement names from mappers.
+		set := map[string]struct{}{}
+		// Iterate through mappers collecting measurement names.
+		for _, m := e.mappers {
+			// Get the data from the mapper.
+			c, err := m.NextChunk()
+			if err != nil {
+				out <- *influxql.Row{Err: err}
+				return
+			} else if c == nil {
+				// Mapper had no data.
+				continue
+			}
+
+			// Convert the mapper chunk to a string array of measurement names.
+			mms, ok := c.([]string)
+			if !ok {
+				out <- *influxql.Row{Err: fmt.Errorf("ShowMeasurementsExecutor: mapper returned invalid type: %T", c)}
+				return
+			}
+
+			// Add the measurement names to the set.
+			for _, mm := range mms {
+				set[mm] = struct{}{}
+			}
+		}
+
+		// Convert the set into an array of measurement names.
+		measurements := make([]string, 0, len(set))
+		for mm := range set {
+			measurements = append(measurements, mm)
+		}
+		// Sort the names.
+		sort.Strings(measurements)
+
+		// Create a writer to handle offset and limit.
+		columns := influxql.Fields{
+			&influxql.Field{
+				Expr: &influxql.VarRef{
+					Val: "name",
+				},
+			},
+		}
+
+		row := &influxql.Row{
+			Name: "measurements",
+			Columns: columns,
+		}
+
+		for _, m := range measurements {
+			row
+
+		//if rowWriter == nil {
+		//	rowWriter = &limitedRowWriter{
+		//		limit:       e.stmt.Limit,
+		//		offset:      e.stmt.Offset,
+		//		chunkSize:   e.chunkSize,
+		//		name:        chunkedOutput.Name,
+		//		selectNames: selectFields,
+		//		fields:      fields,
+		//		c:           out,
+		//	}
+		//}
+
+		//TODO: loop and emit values.
+		//Should we even use rowWriter or roll our own??
+			// Emit the data via the limiter.
+			rowWriter.Add(chunkedOutput.Values)
+
 		// Keep looping until all mappers drained.
 		var err error
 		for {
 			// Get the next chunk from each Mapper.
 			for _, m := range e.mappers {
-				if m.drained {
+				if m.Drained() {
 					continue
 				}
 
 				// Set the next buffered chunk on the mapper, or mark it drained.
 				for {
+					if c, err := m.NextChunk(); err != nil {
+							out <- &influxql.Row{Err: err}
+							return
+					} else if c == nil {
+						// Mapper has been drained. RIP
+						break
+					}
+
 					if m.bufferedChunk == nil {
 						m.bufferedChunk, err = m.NextChunk()
 						if err != nil {
@@ -145,7 +158,6 @@ func (e *ShowMeasurementsExecutor) Execute() <-chan *influxql.Row {
 						}
 						if m.bufferedChunk == nil {
 							// Mapper can do no more for us.
-							m.drained = true
 							break
 						}
 					}
@@ -163,7 +175,7 @@ func (e *ShowMeasurementsExecutor) Execute() <-chan *influxql.Row {
 			// Now empty out all the chunks up to the min time. Create new output struct for this data.
 			var chunkedOutput *MapperOutput
 			for _, m := range e.mappers {
-				if m.drained {
+				if m.Drained() {
 					continue
 				}
 
@@ -218,6 +230,33 @@ func (e *ShowMeasurementsExecutor) Execute() <-chan *influxql.Row {
 		close(out)
 	}()
 	return out
+}
+
+// Close closes the executor such that all resources are released. Once closed,
+// an executor may not be re-used.
+func (e *ShowMeasurementsExecutor) close() {
+	if e != nil {
+		for _, m := range e.mappers {
+			m.Close()
+		}
+	}
+}
+
+type SelectExecutor struct {
+	stmt           *influxql.SelectStatement
+	mappers        []Mapper
+	chunkSize      int
+	limitedTagSets map[string]struct{} // Set tagsets for which data has reached the LIMIT.
+}
+
+// NewRawExecutor returns a new RawExecutor.
+func NewSelectExecutor(stmt *influxql.SelectStatement, mappers []Mapper, chunkSize int) *SelectExecutor {
+	return &SelectExecutor{
+		stmt:           stmt,
+		mappers:        mappers,
+		chunkSize:      chunkSize,
+		limitedTagSets: make(map[string]struct{}),
+	}
 }
 
 // Execute begins execution of the query and returns a channel to receive rows.
