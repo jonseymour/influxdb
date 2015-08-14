@@ -39,22 +39,48 @@ type StatefulMapper struct {
 }
 
 // NextChunk wraps a RawMapper and some state.
-func (sm *StatefulMapper) NextChunk() (*MapperOutput, error) {
-	c, err := sm.Mapper.NextChunk()
-	if err != nil {
-		return nil, err
-	}
-	chunk, ok := c.(*MapperOutput)
-	if !ok {
-		if chunk == interface{}(nil) {
-			return nil, nil
-		}
-	}
-	return chunk, nil
+func (sm *StatefulMapper) NextChunk() (interface{}, error) {
+	return sm.Mapper.NextChunk()
+	//c, err := sm.Mapper.NextChunk()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//chunk, ok := c.(*MapperOutput)
+	//if !ok {
+	//	if chunk == interface{}(nil) {
+	//		return nil, nil
+	//	}
+	//}
+	//return chunk, nil
 }
 
 type Executor interface {
 	Execute() <-chan *influxql.Row
+}
+
+type ShowMeasurementsExecutor struct {
+	stmt      *influxql.ShowMeasurementsStatement
+	mappers   []Mapper
+	chunkSize int
+}
+
+// NewShowMeasurementsExecutor returns a new ShowMeasurementsExecutor.
+func NewShowMeasurementsExecutor(stmt *influxql.ShowMeasurementsStatement, mappers []Mapper, chunkSize int) *ShowMeasurementsExecutor {
+	return &ShowMeasurementsExecutor{
+		stmt:      stmt,
+		mappers:   mappers,
+		chunkSize: chunkSize,
+	}
+}
+
+// Close closes the executor such that all resources are released. Once closed,
+// an executor may not be re-used.
+func (e *ShowMeasurementsExecutor) close() {
+	if e != nil {
+		for _, m := range e.mappers {
+			m.Close()
+		}
+	}
 }
 
 type SelectExecutor struct {
@@ -76,6 +102,122 @@ func NewSelectExecutor(stmt *influxql.SelectStatement, mappers []Mapper, chunkSi
 		chunkSize:      chunkSize,
 		limitedTagSets: make(map[string]struct{}),
 	}
+}
+
+// Execute begins execution of the query and returns a channel to receive rows.
+func (e *ShowMeasurementsExecutor) Execute() <-chan *influxql.Row {
+	// Create output channel and stream data in a separate goroutine.
+	out := make(chan *influxql.Row, 0)
+
+	// It's important that all resources are released when execution completes.
+	defer e.close()
+
+	go func() {
+		// Open the mappers.
+		for _, m := range e.mappers {
+			if err := m.Open(); err != nil {
+				out <- &influxql.Row{Err: err}
+				return
+			}
+		}
+
+		selectFields := []string{"name"}
+
+		// Used to read ahead chunks from mappers.
+		var rowWriter *limitedRowWriter
+
+		// Keep looping until all mappers drained.
+		var err error
+		for {
+			// Get the next chunk from each Mapper.
+			for _, m := range e.mappers {
+				if m.drained {
+					continue
+				}
+
+				// Set the next buffered chunk on the mapper, or mark it drained.
+				for {
+					if m.bufferedChunk == nil {
+						m.bufferedChunk, err = m.NextChunk()
+						if err != nil {
+							out <- &influxql.Row{Err: err}
+							return
+						}
+						if m.bufferedChunk == nil {
+							// Mapper can do no more for us.
+							m.drained = true
+							break
+						}
+					}
+
+					break
+				}
+			}
+
+			// All Mappers done?
+			if e.mappersDrained() {
+				rowWriter.Flush()
+				break
+			}
+
+			// Now empty out all the chunks up to the min time. Create new output struct for this data.
+			var chunkedOutput *MapperOutput
+			for _, m := range e.mappers {
+				if m.drained {
+					continue
+				}
+
+				// Add up to the index to the values
+				if chunkedOutput == nil {
+					chunkedOutput = &MapperOutput{
+						Name: m.bufferedChunk.Name,
+					}
+					chunkedOutput.Values = m.bufferedChunk.Values
+				} else {
+					chunkedOutput.Values = append(chunkedOutput.Values, m.bufferedChunk.Values...)
+				}
+
+				// Clear out the values being sent out, keep the remainder.
+				m.bufferedChunk.Values = m.bufferedChunk.Values[:0]
+
+				// If we emptied out all the values, clear the mapper's buffered chunk.
+				if len(m.bufferedChunk.Values) == 0 {
+					m.bufferedChunk = nil
+				}
+			}
+
+			// Sort the values by time first so we can then handle offset and limit
+			sort.Sort(MapperValues(chunkedOutput.Values))
+
+			// Now that we have full name and tag details, initialize the rowWriter.
+			// The Name and Tags will be the same for all mappers.
+			fields := influxql.Fields{
+				&influxql.Field{
+					Expr: &influxql.VarRef{
+						Val: "name",
+					},
+				},
+			}
+
+			if rowWriter == nil {
+				rowWriter = &limitedRowWriter{
+					limit:       e.stmt.Limit,
+					offset:      e.stmt.Offset,
+					chunkSize:   e.chunkSize,
+					name:        chunkedOutput.Name,
+					selectNames: selectFields,
+					fields:      fields,
+					c:           out,
+				}
+			}
+
+			// Emit the data via the limiter.
+			rowWriter.Add(chunkedOutput.Values)
+		}
+
+		close(out)
+	}()
+	return out
 }
 
 // Execute begins execution of the query and returns a channel to receive rows.

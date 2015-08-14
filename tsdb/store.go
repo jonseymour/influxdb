@@ -284,14 +284,10 @@ func (s *Store) WriteToShard(shardID uint64, points []Point) error {
 	return sh.WritePoints(points)
 }
 
-func (s *Store) CreateMapper(shardID uint64, query string, chunkSize int) (Mapper, error) {
+func (s *Store) CreateMetaMapper(shardID uint64, query string, chunkSize int) (Mapper, error) {
 	q, err := influxql.NewParser(strings.NewReader(query)).ParseStatement()
 	if err != nil {
 		return nil, err
-	}
-	stmt, ok := q.(*influxql.SelectStatement)
-	if !ok {
-		return nil, fmt.Errorf("query is not a SELECT statement: %s", err.Error())
 	}
 
 	shard := s.Shard(shardID)
@@ -300,7 +296,22 @@ func (s *Store) CreateMapper(shardID uint64, query string, chunkSize int) (Mappe
 		return nil, nil
 	}
 
-	return NewLocalMapper(shard, stmt, chunkSize), nil
+	return NewLocalMetaMapper(shard, q, chunkSize), nil
+}
+
+func (s *Store) CreateMapper(shardID uint64, query string, chunkSize int) (Mapper, error) {
+	q, err := influxql.NewParser(strings.NewReader(query)).ParseStatement()
+	if err != nil {
+		return nil, err
+	}
+
+	shard := s.Shard(shardID)
+	if shard == nil {
+		// This can happen if the shard has been assigned, but hasn't actually been created yet.
+		return nil, nil
+	}
+
+	return NewLocalMapper(shard, q, chunkSize), nil
 }
 
 func (s *Store) Close() error {

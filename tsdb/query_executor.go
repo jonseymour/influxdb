@@ -39,6 +39,7 @@ type QueryExecutor struct {
 	// Maps shards for queries.
 	ShardMapper interface {
 		CreateMapper(shard meta.ShardInfo, stmt string, chunkSize int) (Mapper, error)
+		CreateMetaMapper(shard meta.ShardInfo, stmt string, chunkSize int) (Mapper, error)
 	}
 
 	Logger *log.Logger
@@ -117,6 +118,7 @@ func (q *QueryExecutor) Authorize(u *meta.UserInfo, query *influxql.Query, datab
 // It sends results down the passed in chan and closes it when done. It will close the chan
 // on the first statement that throws an error.
 func (q *QueryExecutor) ExecuteQuery(query *influxql.Query, database string, chunkSize int) (<-chan *influxql.Result, error) {
+	fmt.Printf("ExecuteQuery: db = %s\n", database)
 	// Execute each statement. Keep the iterator external so we can
 	// track how many of the statements were executed
 	results := make(chan *influxql.Result)
@@ -133,6 +135,7 @@ func (q *QueryExecutor) ExecuteQuery(query *influxql.Query, database string, chu
 					defaultDB = s.DefaultDatabase()
 				}
 			}
+			fmt.Printf("ExecuteQuery: defaultdb = %s\n", defaultDB)
 
 			// Normalize each statement.
 			if err := q.normalizeStatement(stmt, defaultDB); err != nil {
@@ -156,7 +159,10 @@ func (q *QueryExecutor) ExecuteQuery(query *influxql.Query, database string, chu
 				// TODO: handle this in a cluster
 				res = q.executeDropMeasurementStatement(stmt, database)
 			case *influxql.ShowMeasurementsStatement:
-				res = q.executeShowMeasurementsStatement(stmt, database)
+				if err := q.executeShowMeasurementsStatement(i, stmt, database, results, chunkSize); err != nil {
+					results <- &influxql.Result{Err: err}
+					break
+				}
 			case *influxql.ShowTagKeysStatement:
 				res = q.executeShowTagKeysStatement(stmt, database)
 			case *influxql.ShowTagValuesStatement:
@@ -548,8 +554,9 @@ func (q *QueryExecutor) filterShowSeriesResult(limit, offset int, rows influxql.
 }
 
 // PlanShowMeasurements creates an execution plan for the given SelectStatement and returns an Executor.
-func (q *QueryExecutor) PlanShowMeasurements(stmt *influxql.ShowMeasurementsStatement, database string, chunkSize int) (*Executor, error) {
+func (q *QueryExecutor) PlanShowMeasurements(stmt *influxql.ShowMeasurementsStatement, database string, chunkSize int) (Executor, error) {
 	// Get the database info.
+	fmt.Printf("database = %s\n", database)
 	di, err := q.MetaStore.Database(database)
 	if err != nil {
 		return nil, err
@@ -563,7 +570,7 @@ func (q *QueryExecutor) PlanShowMeasurements(stmt *influxql.ShowMeasurementsStat
 	// Build the Mappers, one per shard.
 	mappers := []Mapper{}
 	for _, sh := range shards {
-		m, err := q.ShardMapper.CreateMapper(sh, stmt.String(), chunkSize)
+		m, err := q.ShardMapper.CreateMetaMapper(sh, stmt.String(), chunkSize)
 		if err != nil {
 			return nil, err
 		}
@@ -574,68 +581,35 @@ func (q *QueryExecutor) PlanShowMeasurements(stmt *influxql.ShowMeasurementsStat
 		mappers = append(mappers, m)
 	}
 
-	//executor := NewExecutor(stmt, mappers, chunkSize)
-	//return executor, nil
-	return nil, nil
+	executor := NewShowMeasurementsExecutor(stmt, mappers, chunkSize)
+	return executor, nil
 }
 
-func (q *QueryExecutor) executeShowMeasurementsStatement(stmt *influxql.ShowMeasurementsStatement, database string) *influxql.Result {
-	// Find the database.
-	db := q.Store.DatabaseIndex(database)
-	if db == nil {
-		return &influxql.Result{}
+func (q *QueryExecutor) executeShowMeasurementsStatement(statementID int, stmt *influxql.ShowMeasurementsStatement, database string, results chan *influxql.Result, chunkSize int) error {
+	// Plan statement execution.
+	e, err := q.PlanShowMeasurements(stmt, database, chunkSize)
+	if err != nil {
+		return err
 	}
 
-	var measurements Measurements
+	// Execute plan.
+	ch := e.Execute()
 
-	// If a WHERE clause was specified, filter the measurements.
-	if stmt.Condition != nil {
-		var err error
-		measurements, err = db.measurementsByExpr(stmt.Condition)
-		if err != nil {
-			return &influxql.Result{Err: err}
+	// Stream results from the channel. We should send an empty result if nothing comes through.
+	resultSent := false
+	for row := range ch {
+		if row.Err != nil {
+			return row.Err
 		}
-	} else {
-		// Otherwise, get all measurements from the database.
-		measurements = db.Measurements()
-	}
-	sort.Sort(measurements)
-
-	offset := stmt.Offset
-	limit := stmt.Limit
-
-	// If OFFSET is past the end of the array, return empty results.
-	if offset > len(measurements)-1 {
-		return &influxql.Result{}
+		resultSent = true
+		results <- &influxql.Result{StatementID: statementID, Series: []*influxql.Row{row}}
 	}
 
-	// Calculate last index based on LIMIT.
-	end := len(measurements)
-	if limit > 0 && offset+limit < end {
-		limit = offset + limit
-	} else {
-		limit = end
+	if !resultSent {
+		results <- &influxql.Result{StatementID: statementID, Series: make([]*influxql.Row, 0)}
 	}
 
-	// Make a result row to hold all measurement names.
-	row := &influxql.Row{
-		Name:    "measurements",
-		Columns: []string{"name"},
-	}
-
-	// Add one value to the row for each measurement name.
-	for i := offset; i < limit; i++ {
-		m := measurements[i]
-		v := interface{}(m.Name)
-		row.Values = append(row.Values, []interface{}{v})
-	}
-
-	// Make a result.
-	result := &influxql.Result{
-		Series: []*influxql.Row{row},
-	}
-
-	return result
+	return nil
 }
 
 func (q *QueryExecutor) executeShowTagKeysStatement(stmt *influxql.ShowTagKeysStatement, database string) *influxql.Result {

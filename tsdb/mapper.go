@@ -38,6 +38,47 @@ func (mo *MapperOutput) key() string {
 	return formMeasurementTagSetKey(mo.Name, mo.Tags)
 }
 
+//type Mapper interface {
+//	Open() error
+//	TagSets() []string
+//	Fields() []string
+//	NextChunk() (interface{}, error)
+//	Close()
+//}
+
+type LocalMetaMapper struct {
+	shard     *Shard
+	stmt      influxql.Statement
+	chunkSize int
+}
+
+// NewLocalMetaMapper returns a mapper for the given shard, which will return data for the meta statement.
+func NewLocalMetaMapper(shard *Shard, stmt influxql.Statement, chunkSize int) *LocalMetaMapper {
+	return &LocalMetaMapper{
+		shard:     shard,
+		stmt:      stmt,
+		chunkSize: chunkSize,
+	}
+}
+
+func (lmm *LocalMetaMapper) Open() error { return nil }
+
+func (lmm *LocalMetaMapper) TagSets() []string { return nil }
+
+func (lmm *LocalMetaMapper) Fields() []string {
+	return []string{"name"}
+}
+
+func (lmm *LocalMetaMapper) NextChunk() (interface{}, error) {
+	fields := []string{}
+	for k := range lmm.shard.measurementFields {
+		fields = append(fields, k)
+	}
+	return fields, nil
+}
+
+func (lmm *LocalMetaMapper) Close() {}
+
 // LocalMapper is for retrieving data for a query, from a given shard.
 type LocalMapper struct {
 	shard           *Shard
@@ -74,11 +115,6 @@ func NewLocalMapper(shard *Shard, stmt influxql.Statement, chunkSize int) *Local
 	}
 }
 
-// openMeta opens the mapper for a meta query.
-func (lm *LocalMapper) openMeta() error {
-	return errors.New("not implemented")
-}
-
 // Open opens the local mapper.
 func (lm *LocalMapper) Open() error {
 	var err error
@@ -90,15 +126,16 @@ func (lm *LocalMapper) Open() error {
 	}
 	lm.tx = tx
 
-	if s, ok := lm.stmt.(*influxql.SelectStatement); ok {
+	switch s := lm.stmt.(type) {
+	case *influxql.SelectStatement:
 		stmt, err := lm.rewriteSelectStatement(s)
 		if err != nil {
 			return err
 		}
 		lm.selectStmt = stmt
 		lm.rawMode = (s.IsRawQuery && !s.HasDistinct()) || s.IsSimpleDerivative()
-	} else {
-		return lm.openMeta()
+	default:
+		return fmt.Errorf("unsupported statement type: %T", s)
 	}
 
 	// Set all time-related parameters on the mapper.

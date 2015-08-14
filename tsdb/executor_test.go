@@ -971,7 +971,7 @@ func (t *testQEShardMapper) CreateMapper(shard meta.ShardInfo, stmt string, chun
 	return t.store.CreateMapper(shard.ID, stmt, chunkSize)
 }
 
-func executeAndGetResults(executor *tsdb.SelectExecutor) string {
+func executeAndGetResults(executor tsdb.Executor) string {
 	ch := executor.Execute()
 
 	var rows []*influxql.Row
