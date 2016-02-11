@@ -98,6 +98,8 @@ func (r *Reader) Open() error {
 			return err
 		}
 
+		fmt.Fprintf(os.Stderr, "found series: %s\n", s)
+
 		measurement := tsdb.MeasurementFromSeriesKey(s)
 		fields := r.fields[tsdb.MeasurementFromSeriesKey(s)]
 		if fields == nil {
