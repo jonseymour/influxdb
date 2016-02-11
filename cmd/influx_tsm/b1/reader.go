@@ -65,6 +65,7 @@ func (r *Reader) Open() error {
 			if err := mf.UnmarshalBinary(v); err != nil {
 				return err
 			}
+			fmt.Fprintf(os.Stderr, "found field: %s\n", string(k))
 			r.fields[string(k)] = mf
 			r.codecs[string(k)] = tsdb.NewFieldCodec(mf.Fields)
 		}
