@@ -57,7 +57,7 @@ func (r *Reader) Open() error {
 
 	// dump the buckets found
 	if err := r.db.View(func(tx *bolt.Tx) error {
-		return tx.ForEach(func(name []byte, b *Bucket) error {
+		return tx.ForEach(func(name []byte, b *bolt.Bucket) error {
 			fmt.Fprintf(os.Stderr, "found bucket %s\n", string(name))
 			return nil
 		})
