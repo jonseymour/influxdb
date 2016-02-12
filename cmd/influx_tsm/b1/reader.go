@@ -55,6 +55,16 @@ func (r *Reader) Open() error {
 	}
 	r.db = db
 
+	// dump the buckets found
+	if err := r.db.View(func(tx *bolt.Tx) error {
+		return tx.ForEach(func(name []byte, b *Bucket) error {
+			fmt.Fprintf(os.Stderr, "found bucket %s\n", string(name))
+			return nil
+		})
+	}); err != nil {
+		return err
+	}
+
 	// Load fields.
 	if err := r.db.View(func(tx *bolt.Tx) error {
 		meta := tx.Bucket([]byte("fields"))
