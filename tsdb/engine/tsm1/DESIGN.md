@@ -103,7 +103,7 @@ The compaction process then runs again until there are no more WAL files and the
 
 # WAL
 
-Currently, there is a single WAL segment per shard.  This means all the writes in a WAL segment are for the given shard.  It also means that writes across a lot of shards append to many files which might result in more disk IO due to seeking to the end of multiple files.
+Currently, there is a WAL per shard.  This means all the writes in a WAL segment are for the given shard.  It also means that writes across a lot of shards append to many files which might result in more disk IO due to seeking to the end of multiple files.
 
 Two options are being considered:
 
