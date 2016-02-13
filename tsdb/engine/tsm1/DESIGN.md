@@ -90,7 +90,7 @@ Compactions are a serial and continuously running process that iteratively optim
 The compaction algorithm is continuously running and always selects files to compact based on a priority.
 
 1. If there are closed WAL files, the 5 oldest WAL segments are added to the set of compaction files.
-2. If any TSM files contains points with older timestamps that also exist in the WAL files, those TSM files are added to the compaction set.
+2. If any TSM files contain points with older timestamps that also exist in the WAL files, those TSM files are added to the compaction set.
 3. If any TSM files have a tombstone marker, those TSM files are added to the compaction set.
 
 The compaction algorithm generates a set of SeriesIterators that return a sequence of `key`, `Values` where each `key` returned is lexicographically greater than the previous one.  The iterators are ordered such that WAL iterators will override any values returned by the TSM file iterators.  WAL iterators read and cache the WAL segment so that deletes later in the log can be processed correctly.  TSM file iterators use the tombstone files to ensure that deleted series are not returned during iteration.  As each key is processed, the Values slice is grown, sorted, and then written to a new block in the new TSM file.  The blocks can be split based on number of points or size of the block.  If the total size of the current TSM file would exceed the maximum file size, a new file is created.
