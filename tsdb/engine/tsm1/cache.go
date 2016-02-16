@@ -55,7 +55,7 @@ func (e *entry) add(values []Value) {
 // deduplicate sorts and orders the entry's values. If values are already deduped and
 // and sorted, the function does no work and simply returns.
 func (e *entry) deduplicate() {
-	if !e.needSort || len(e.values) == 0 {
+	if !e.needSort || len(e.values) < 2 {
 		return
 	}
 	e.values = e.values.Deduplicate()
