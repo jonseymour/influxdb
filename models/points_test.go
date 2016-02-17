@@ -1790,3 +1790,9 @@ func TestNewPointsWithBytesWithCorruptData(t *testing.T) {
 		t.Fatalf("probable infite loop. got: timeout, expected: return")
 	}
 }
+
+func TestNewPointsRejectsEmptyFieldNames(t *testing.T) {
+	if _, err := models.NewPoint("foo", nil, models.Fields{"": 1}, time.Now()); err == nil {
+		t.Fatalf("new point with empty field name. got: nil, expected: error")
+	}
+}
