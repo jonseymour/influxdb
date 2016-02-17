@@ -1078,6 +1078,9 @@ func NewPoint(name string, tags Tags, fields Fields, time time.Time) (Point, err
 				return nil, fmt.Errorf("NaN is an unsupported value for field %s", key)
 			}
 		}
+		if len(key) == 0 {
+			return nil, fmt.Errorf("All fields must have non-empty names")
+		}
 	}
 
 	return &point{
