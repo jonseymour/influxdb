@@ -2,11 +2,35 @@ package tsdb
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/influxdb/influxdb/influxql"
 	"github.com/influxdb/influxdb/models"
 )
+
+// EnsureUniqueNonEmptyNames returns an array of len(in) such that out[i] = in[i] iff
+// in[i] is unique in in and non-blank. Disambiguation of duplicate and empty names is
+// achieved by append _{i} to in[i] where {i} is the string representation of the
+// column index i.
+func EnsureUniqueNonEmptyNames(in []string) []string {
+	out := make([]string, len(in))
+	seen := map[string]bool{}
+	for i, c := range in {
+		n := c
+		if c == "" {
+			n = fmt.Sprintf("_%d", i)
+		}
+
+		for seen[n] { // note: boolean test, not range
+			n = fmt.Sprintf("%s_%d", n, i)
+		}
+		out[i] = n
+		seen[n] = true
+
+	}
+	return out
+}
 
 // convertRowToPoints will convert a query result Row into Points that can be written back in.
 // Used for INTO queries
@@ -14,7 +38,7 @@ func convertRowToPoints(measurementName string, row *models.Row) ([]models.Point
 	// figure out which parts of the result are the time and which are the fields
 	timeIndex := -1
 	fieldIndexes := make(map[string]int)
-	for i, c := range row.Columns {
+	for i, c := range EnsureUniqueNonEmptyNames(row.Columns) {
 		if c == "time" {
 			timeIndex = i
 		} else {
