@@ -37,7 +37,6 @@ type Point interface {
 	SetTags(tags Tags)
 
 	Fields() Fields
-	AddField(name string, value interface{})
 
 	Time() time.Time
 	SetTime(t time.Time)
@@ -1213,14 +1212,6 @@ func (p *point) Fields() Fields {
 	}
 	p.cachedFields = p.unmarshalBinary()
 	return p.cachedFields
-}
-
-// AddField adds or replaces a field value for a point
-func (p *point) AddField(name string, value interface{}) {
-	fields := p.Fields()
-	fields[name] = value
-	p.fields = fields.MarshalBinary()
-	p.cachedFields = nil
 }
 
 // SetPrecision will round a time to the specified precision
