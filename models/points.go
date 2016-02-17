@@ -3,6 +3,7 @@ package models
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"math"
@@ -25,6 +26,8 @@ var (
 		' ': []byte(`\ `),
 		'=': []byte(`\=`),
 	}
+
+	ErrPointMustHaveAField = errors.New("Point without fields is unsupported")
 )
 
 // Point defines the values that will be written to the database
@@ -1062,7 +1065,7 @@ func unescapeStringField(in string) string {
 // an unsupported field value (NaN) or out of range time is passed, this function returns an error.
 func NewPoint(name string, tags Tags, fields Fields, time time.Time) (Point, error) {
 	if len(fields) == 0 {
-		return nil, fmt.Errorf("Point without fields is unsupported")
+		return nil, ErrPointMustHaveAField
 	}
 	if !time.IsZero() {
 		if err := CheckTime(time); err != nil {
@@ -1093,6 +1096,9 @@ func NewPointFromBytes(b []byte) (Point, error) {
 	p := &point{}
 	if err := p.UnmarshalBinary(b); err != nil {
 		return nil, err
+	}
+	if len(p.Fields()) == 0 {
+		return nil, ErrPointMustHaveAField
 	}
 	return p, nil
 }
