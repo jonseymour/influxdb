@@ -1388,38 +1388,37 @@ func newFieldsFromBinary(buf []byte) Fields {
 		}
 
 		i, name = scanTo(buf, i, '=')
-		if len(name) == 0 {
-			continue
-		}
 		name = escape.Unescape(name)
 
 		i, valueBuf = scanFieldValue(buf, i+1)
-		if len(valueBuf) == 0 {
-			fields[string(name)] = nil
-			continue
-		}
-
-		// If the first char is a double-quote, then unmarshal as string
-		if valueBuf[0] == '"' {
-			value = unescapeStringField(string(valueBuf[1 : len(valueBuf)-1]))
-			// Check for numeric characters and special NaN or Inf
-		} else if (valueBuf[0] >= '0' && valueBuf[0] <= '9') || valueBuf[0] == '-' || valueBuf[0] == '+' || valueBuf[0] == '.' ||
-			valueBuf[0] == 'N' || valueBuf[0] == 'n' || // NaN
-			valueBuf[0] == 'I' || valueBuf[0] == 'i' { // Inf
-
-			value, err = parseNumber(valueBuf)
-			if err != nil {
-				panic(fmt.Sprintf("unable to parse number value '%v': %v", string(valueBuf), err))
+		if len(name) > 0 {
+			if len(valueBuf) == 0 {
+				fields[string(name)] = nil
+				continue
 			}
 
-			// Otherwise parse it as bool
-		} else {
-			value, err = strconv.ParseBool(string(valueBuf))
-			if err != nil {
-				panic(fmt.Sprintf("unable to parse bool value '%v': %v\n", string(valueBuf), err))
+			// If the first char is a double-quote, then unmarshal as string
+			if valueBuf[0] == '"' {
+				value = unescapeStringField(string(valueBuf[1 : len(valueBuf)-1]))
+				// Check for numeric characters and special NaN or Inf
+			} else if (valueBuf[0] >= '0' && valueBuf[0] <= '9') || valueBuf[0] == '-' || valueBuf[0] == '+' || valueBuf[0] == '.' ||
+				valueBuf[0] == 'N' || valueBuf[0] == 'n' || // NaN
+				valueBuf[0] == 'I' || valueBuf[0] == 'i' { // Inf
+
+				value, err = parseNumber(valueBuf)
+				if err != nil {
+					panic(fmt.Sprintf("unable to parse number value '%v': %v", string(valueBuf), err))
+				}
+
+				// Otherwise parse it as bool
+			} else {
+				value, err = strconv.ParseBool(string(valueBuf))
+				if err != nil {
+					panic(fmt.Sprintf("unable to parse bool value '%v': %v\n", string(valueBuf), err))
+				}
 			}
+			fields[string(name)] = value
 		}
-		fields[string(name)] = value
 		i++
 	}
 	return fields
