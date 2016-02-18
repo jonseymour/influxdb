@@ -32,13 +32,38 @@ func EnsureUniqueNonEmptyNames(in []string) []string {
 	return out
 }
 
+func MemoisedEnsureUniqueNonEmptyNames() func(in []string) []string {
+	lastIn := []string{}
+	lastOut := []string{}
+	return func(in []string) []string {
+		equal := len(lastIn) == len(in)
+		if equal {
+			for i, k := range in {
+				if k != lastIn[i] {
+					equal = false
+					break
+				}
+			}
+		}
+
+		if !equal {
+			if len(lastIn) != len(in) {
+				lastIn = make([]string, len(in))
+			}
+			copy(lastIn, in)
+			lastOut = EnsureUniqueNonEmptyNames(in)
+		}
+		return lastOut
+	}
+}
+
 // convertRowToPoints will convert a query result Row into Points that can be written back in.
 // Used for INTO queries
-func convertRowToPoints(measurementName string, row *models.Row) ([]models.Point, error) {
+func convertRowToPoints(measurementName string, row *models.Row, nameMap func([]string) []string) ([]models.Point, error) {
 	// figure out which parts of the result are the time and which are the fields
 	timeIndex := -1
 	fieldIndexes := make(map[string]int)
-	for i, c := range EnsureUniqueNonEmptyNames(row.Columns) {
+	for i, c := range nameMap(row.Columns) {
 		if c == "time" {
 			timeIndex = i
 		} else {

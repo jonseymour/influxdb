@@ -705,6 +705,7 @@ func (q *QueryExecutor) executeStatement(statementID int, stmt influxql.Statemen
 	var isinto bool
 	// Stream results from the channel. We should send an empty result if nothing comes through.
 	resultSent := false
+	nameMapper := MemoisedEnsureUniqueNonEmptyNames()
 	for row := range ch {
 		// We had a write error. Continue draining results from the channel
 		// so we don't hang the goroutine in the executor.
@@ -718,7 +719,7 @@ func (q *QueryExecutor) executeStatement(statementID int, stmt influxql.Statemen
 		if ok && selectstmt.Target != nil {
 			isinto = true
 			// this is a into query. Write results back to database
-			writeerr = q.writeInto(row, selectstmt)
+			writeerr = q.writeInto(row, selectstmt, nameMapper)
 			intoNum += int64(len(row.Values))
 		} else {
 			resultSent = true
@@ -750,7 +751,7 @@ func (q *QueryExecutor) executeStatement(statementID int, stmt influxql.Statemen
 	return nil
 }
 
-func (q *QueryExecutor) writeInto(row *models.Row, selectstmt *influxql.SelectStatement) error {
+func (q *QueryExecutor) writeInto(row *models.Row, selectstmt *influxql.SelectStatement, nameMapper func([]string) []string) error {
 	// It might seem a bit weird that this is where we do this, since we will have to
 	// convert rows back to points. The Executors (both aggregate and raw) are complex
 	// enough that changing them to write back to the DB is going to be clumsy
@@ -767,7 +768,7 @@ func (q *QueryExecutor) writeInto(row *models.Row, selectstmt *influxql.SelectSt
 		return err
 	}
 	rp := intoRP(selectstmt)
-	points, err := convertRowToPoints(measurement, row)
+	points, err := convertRowToPoints(measurement, row, nameMapper)
 	if err != nil {
 		return err
 	}
