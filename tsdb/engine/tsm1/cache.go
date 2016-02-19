@@ -55,7 +55,7 @@ func (e *entry) add(values []Value) {
 // deduplicate sorts and orders the entry's values. If values are already deduped and
 // and sorted, the function does no work and simply returns.
 func (e *entry) deduplicate() {
-	if !e.needSort || len(e.values) == 0 {
+	if !e.needSort || len(e.values) < 2 {
 		return
 	}
 	e.values = e.values.Deduplicate()
@@ -188,8 +188,22 @@ func (c *Cache) PrepareSnapshots(files []string) []*Cache {
 // Deduplicate sorts the snapshot before returning it. The compactor and any queries
 // coming in while it writes will need the values sorted
 func (c *Cache) Deduplicate() {
-	for _, e := range c.store {
-		e.deduplicate()
+
+	sorted := map[string]*entry{}
+	for k, e := range c.store {
+		if e.needSort {
+			clone := &entry{}
+			*clone = *e
+			clone.deduplicate()
+			sorted[k] = clone
+		}
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for k, e := range sorted {
+		c.store[k] = e
 	}
 }
 
@@ -300,7 +314,11 @@ func (c *Cache) merged(key string) Values {
 	var entries []*entry
 	sz := 0
 	for _, s := range c.snapshots {
-		e := s.store[key]
+		e := func(s *Cache) *entry {
+			s.mu.RLock()
+			defer s.mu.RUnlock()
+			return s.store[key]
+		}(s)
 		if e != nil {
 			entries = append(entries, e)
 			sz += len(e.values)
