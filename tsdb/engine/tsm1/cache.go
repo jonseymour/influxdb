@@ -55,7 +55,7 @@ func (e *entry) add(values []Value) {
 // deduplicate sorts and orders the entry's values. If values are already deduped and
 // and sorted, the function does no work and simply returns.
 func (e *entry) deduplicate() {
-	if !e.needSort || len(e.values) == 0 {
+	if !e.needSort || len(e.values) <= 1 {
 		return
 	}
 	e.values = e.values.Deduplicate()
@@ -66,6 +66,7 @@ func (e *entry) deduplicate() {
 type Cache struct {
 	mu      sync.RWMutex
 	store   map[string]*entry
+	dirty   map[string]*entry
 	size    uint64
 	maxSize uint64
 
@@ -138,6 +139,14 @@ func (c *Cache) Snapshot() *Cache {
 	snapshot := NewCache(c.maxSize)
 	snapshot.store = c.store
 	snapshot.size = c.size
+	snapshot.dirty = make(map[string]*entry)
+	for k, e := range c.store {
+		if e.needSort {
+			snapshot.dirty[k] = &entry{needSort: true, values: e.values}
+		} else {
+			snapshot.dirty[k] = e
+		}
+	}
 
 	c.store = make(map[string]*entry)
 	c.size = 0
@@ -151,9 +160,15 @@ func (c *Cache) Snapshot() *Cache {
 // Deduplicate sorts the snapshot before returning it. The compactor and any queries
 // coming in while it writes will need the values sorted
 func (c *Cache) Deduplicate() {
-	for _, e := range c.store {
+	for _, e := range c.dirty {
 		e.deduplicate()
 	}
+}
+
+// This method must be called while holding the write lock of the cache that
+// create this snapshot.
+func (c *Cache) UpdateStore() {
+	c.store, c.dirty = c.dirty, nil
 }
 
 // ClearSnapshot will remove the snapshot cache from the list of flushing caches and
