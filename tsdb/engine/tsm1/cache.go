@@ -90,20 +90,17 @@ type Cache struct {
 	snapshots     []*Cache
 	snapshotsSize uint64
 
-	statMap      *expvar.Map
+	statMap      *expvar.Map // nil for snapshots.
 	lastSnapshot time.Time
-
-	// path is only used to track stats
-	path string
 }
 
 // NewCache returns an instance of a cache which will use a maximum of maxSize bytes of memory.
+// Only used for engine caches, never for snapshots
 func NewCache(maxSize uint64, path string) *Cache {
 	c := &Cache{
 		maxSize:      maxSize,
 		store:        make(map[string]*entry),
 		statMap:      influxdb.NewStatistics("tsm1_cache:"+path, "tsm1_cache", map[string]string{"path": path}),
-		path:         path,
 		lastSnapshot: time.Now(),
 	}
 	c.UpdateAge()
@@ -173,9 +170,10 @@ func (c *Cache) Snapshot() *Cache {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	snapshot := NewCache(c.maxSize, c.path+"!snapshot")
-	snapshot.store = c.store
-	snapshot.size = c.size
+	snapshot := &Cache{
+		store: c.store,
+		size:  c.size,
+	}
 
 	c.store = make(map[string]*entry)
 	c.size = 0
