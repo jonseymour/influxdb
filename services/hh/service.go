@@ -1,7 +1,7 @@
 package hh // import "github.com/influxdata/influxdb/services/hh"
 
 import (
-	"expvar"
+	"github.com/influxdata/influxdb/expvar"
 	"fmt"
 	"io/ioutil"
 	"log"

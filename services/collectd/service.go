@@ -1,7 +1,7 @@
 package collectd // import "github.com/influxdata/influxdb/services/collectd"
 
 import (
-	"expvar"
+	"github.com/influxdata/influxdb/expvar"
 	"fmt"
 	"log"
 	"net"

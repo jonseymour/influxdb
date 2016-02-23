@@ -1,7 +1,7 @@
 package tsm1
 
 import (
-	"expvar"
+	"github.com/influxdata/influxdb/expvar"
 	"fmt"
 	"log"
 	"os"

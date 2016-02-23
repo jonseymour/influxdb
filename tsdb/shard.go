@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
-	"expvar"
+	"github.com/influxdata/influxdb/expvar"
 	"fmt"
 	"io"
 	"math"

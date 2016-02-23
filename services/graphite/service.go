@@ -2,7 +2,7 @@ package graphite // import "github.com/influxdata/influxdb/services/graphite"
 
 import (
 	"bufio"
-	"expvar"
+	"github.com/influxdata/influxdb/expvar"
 	"fmt"
 	"log"
 	"math"

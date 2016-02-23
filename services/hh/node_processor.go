@@ -2,7 +2,7 @@ package hh
 
 import (
 	"encoding/binary"
-	"expvar"
+	"github.com/influxdata/influxdb/expvar"
 	"fmt"
 	"io"
 	"log"

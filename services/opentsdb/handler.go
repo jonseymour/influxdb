@@ -5,7 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"errors"
-	"expvar"
+	"github.com/influxdata/influxdb/expvar"
 	"io"
 	"log"
 	"net"

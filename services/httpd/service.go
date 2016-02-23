@@ -2,7 +2,7 @@ package httpd // import "github.com/influxdata/influxdb/services/httpd"
 
 import (
 	"crypto/tls"
-	"expvar"
+	"github.com/influxdata/influxdb/expvar"
 	"fmt"
 	"log"
 	"net"

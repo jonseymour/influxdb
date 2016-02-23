@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/tls"
-	"expvar"
+	"github.com/influxdata/influxdb/expvar"
 	"io"
 	"log"
 	"net"

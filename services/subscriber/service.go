@@ -1,7 +1,7 @@
 package subscriber // import "github.com/influxdata/influxdb/services/subscriber"
 
 import (
-	"expvar"
+	"github.com/influxdata/influxdb/expvar"
 	"fmt"
 	"log"
 	"net/url"

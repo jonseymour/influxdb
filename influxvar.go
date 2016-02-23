@@ -1,7 +1,7 @@
 package influxdb
 
 import (
-	"expvar"
+	"github.com/influxdata/influxdb/expvar"
 	"sync"
 )
 

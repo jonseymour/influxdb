@@ -1,7 +1,7 @@
 package monitor // import "github.com/influxdata/influxdb/monitor"
 
 import (
-	"expvar"
+	"github.com/influxdata/influxdb/expvar"
 	"fmt"
 	"log"
 	"os"

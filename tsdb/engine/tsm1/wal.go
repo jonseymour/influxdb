@@ -3,7 +3,7 @@ package tsm1
 import (
 	"encoding/binary"
 	"errors"
-	"expvar"
+	"github.com/influxdata/influxdb/expvar"
 	"fmt"
 	"io"
 	"log"

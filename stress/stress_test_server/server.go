@@ -1,7 +1,7 @@
 package main
 
 import (
-	"expvar"
+	"github.com/influxdata/influxdb/expvar"
 	"fmt"
 	"github.com/paulbellamy/ratecounter"
 	"io"

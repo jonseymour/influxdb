@@ -2,7 +2,7 @@ package cluster
 
 import (
 	"errors"
-	"expvar"
+	"github.com/influxdata/influxdb/expvar"
 	"fmt"
 	"log"
 	"os"

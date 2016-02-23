@@ -3,7 +3,7 @@ package cluster
 import (
 	"bytes"
 	"errors"
-	"expvar"
+	"github.com/influxdata/influxdb/expvar"
 	"fmt"
 	"io"
 	"io/ioutil"
