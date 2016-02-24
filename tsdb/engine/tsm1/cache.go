@@ -229,6 +229,9 @@ func (c *Cache) Snapshot() *Cache {
 // Deduplicate sorts the snapshot before returning it. The compactor and any queries
 // coming in while it writes will need the values sorted
 func (c *Cache) Deduplicate() {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	for _, e := range c.store {
 		e.deduplicate()
 	}
