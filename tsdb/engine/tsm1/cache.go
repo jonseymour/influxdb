@@ -55,11 +55,16 @@ func (e *entry) add(values []Value) {
 // deduplicate sorts and orders the entry's values. If values are already deduped and
 // and sorted, the function does no work and simply returns.
 func (e *entry) deduplicate() {
+
 	if !e.needSort || len(e.values) == 0 {
 		return
 	}
 	e.values = e.values.Deduplicate()
 	e.needSort = false
+}
+
+func (e *entry) count() int {
+	return len(e.values)
 }
 
 // Statistics gathered by the Cache.
@@ -79,6 +84,7 @@ const (
 
 // Cache maintains an in-memory store of Values for a set of keys.
 type Cache struct {
+	commit  sync.Mutex
 	mu      sync.RWMutex
 	store   map[string]*entry
 	size    uint64
@@ -170,6 +176,8 @@ func (c *Cache) WriteMulti(values map[string][]Value) error {
 // Snapshot will take a snapshot of the current cache, add it to the slice of caches that
 // are being flushed, and reset the current cache with new values
 func (c *Cache) Snapshot() *Cache {
+	c.commit.Lock() // released by RollbackSnapshot() or CommitSnapshot()
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -190,6 +198,9 @@ func (c *Cache) Snapshot() *Cache {
 			c.snapshot.store[k] = e
 		}
 		c.snapshotSize += uint64(Values(e.values).Size())
+		if e.needSort {
+			c.snapshot.store[k].needSort = true
+		}
 	}
 
 	snapshotSize := c.size // record the number of bytes written into a snapshot
@@ -216,15 +227,19 @@ func (c *Cache) Deduplicate() {
 
 // ClearSnapshot will remove the snapshot cache from the list of flushing caches and
 // adjust the size
-func (c *Cache) ClearSnapshot() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+func (c *Cache) ClearSnapshot(success bool) {
+	defer c.commit.Unlock()
 
-	c.snapshotAttempts = 0
-	c.snapshotSize = 0
-	c.snapshot = nil
+	if success {
+		c.mu.Lock()
+		defer c.mu.Unlock()
 
-	c.updateSnapshots()
+		c.snapshotAttempts = 0
+		c.snapshotSize = 0
+		c.snapshot = nil
+
+		c.updateSnapshots()
+	}
 }
 
 // Size returns the number of point-calcuated bytes the cache currently uses.
@@ -241,6 +256,9 @@ func (c *Cache) MaxSize() uint64 {
 
 // Keys returns a sorted slice of all keys under management by the cache.
 func (c *Cache) Keys() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	var a []string
 	for k, _ := range c.store {
 		a = append(a, k)
@@ -307,13 +325,13 @@ func (c *Cache) merged(key string) Values {
 		snapshotEntries := c.snapshot.store[key]
 		if snapshotEntries != nil {
 			entries = append(entries, snapshotEntries)
-			sz += len(snapshotEntries.values)
+			sz += snapshotEntries.count()
 		}
 	}
 
 	if e != nil {
 		entries = append(entries, e)
-		sz += len(e.values)
+		sz += e.count()
 	}
 
 	// Any entries? If not, return.
