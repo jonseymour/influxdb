@@ -66,7 +66,7 @@ func DoStatistics(fn func(expvar.KeyValue)) {
 }
 
 // Used to deregister a statistic when it is no longer needed.
-func DeleteStatistics(key string) {
+func CloseStatistics(key string) {
 	expvarMu.Lock()
 	defer expvarMu.Unlock()
 

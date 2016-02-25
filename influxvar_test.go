@@ -39,7 +39,7 @@ func TestOneStatistic(t *testing.T) {
 		}
 	}
 
-	influxdb.DeleteStatistics("foo")
+	influxdb.CloseStatistics("foo")
 
 	found = make([]expvar.KeyValue, 0)
 	influxdb.DoStatistics(func(kv expvar.KeyValue) {
@@ -50,7 +50,7 @@ func TestOneStatistic(t *testing.T) {
 		t.Fatalf("failed to find expected number of objects. got: %d, expected: 1", length)
 	}
 
-	influxdb.DeleteStatistics("foo")
+	influxdb.CloseStatistics("foo")
 
 	found = make([]expvar.KeyValue, 0)
 	influxdb.DoStatistics(func(kv expvar.KeyValue) {
