@@ -200,7 +200,7 @@ func (m *Monitor) Statistics(tags map[string]string) ([]*Statistic, error) {
 				s := subKV.Value.(*expvar.Int).String()
 				count, _ := strconv.ParseInt(s, 10, 32)
 				if count < 2 {
-					influxdb.DeleteStatistics(kv.Key)
+					influxdb.CloseStatistics(kv.Key)
 				}
 			}
 		})

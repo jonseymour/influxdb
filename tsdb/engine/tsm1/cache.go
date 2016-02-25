@@ -485,5 +485,5 @@ func (c *Cache) updateSnapshots() {
 
 // Ensure that we stop logging these statistics at some point in the future
 func (c *Cache) Close() {
-	influxdb.DeleteStatistics(c.statKey)
+	influxdb.CloseStatistics(c.statKey)
 }
