@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/influxdata/influxdb/tsdb/engine/tsm1"
 	"math/rand"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -31,27 +32,37 @@ func TestCheckConcurrentReadsAreSafe(t *testing.T) {
 	c := tsm1.NewCache(1000000, "")
 
 	ch := make(chan struct{})
+	durations := make(chan time.Duration)
 	for _, s := range series {
 		for _, v := range values {
 			c.Write(s, tsm1.Values{v})
 		}
+		reader := func(s string) {
+			defer wg.Done()
+			<-ch
+			started := time.Now()
+			c.Values(s)
+			durations <- time.Now().Sub(started)
+		}
 		wg.Add(3)
-		go func(s string) {
-			defer wg.Done()
-			<-ch
-			c.Values(s)
-		}(s)
-		go func(s string) {
-			defer wg.Done()
-			<-ch
-			c.Values(s)
-		}(s)
-		go func(s string) {
-			defer wg.Done()
-			<-ch
-			c.Values(s)
-		}(s)
+		go reader(s)
+		go reader(s)
+		go reader(s)
 	}
+
+	nReaders := len(series) * 3
+	var total time.Duration
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		i := nReaders
+		for i > 0 {
+			total += <-durations
+			i--
+		}
+
+	}()
 	close(ch)
 	wg.Wait()
+	fmt.Fprintf(os.Stderr, "average duration - %d (ns)\n", int64(total)/int64(nReaders))
 }
