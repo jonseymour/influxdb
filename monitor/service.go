@@ -140,11 +140,7 @@ func (m *Monitor) DeregisterDiagnosticsClient(name string) {
 func (m *Monitor) Statistics(tags map[string]string) ([]*Statistic, error) {
 	var statistics []*Statistic
 
-	expvar.Do(func(kv expvar.KeyValue) {
-		// Skip built-in expvar stats.
-		if kv.Key == "memstats" || kv.Key == "cmdline" {
-			return
-		}
+	influxdb.DoStatistics(func(kv expvar.KeyValue) {
 
 		statistic := &Statistic{
 			Tags:   make(map[string]string),
@@ -200,6 +196,12 @@ func (m *Monitor) Statistics(tags map[string]string) ([]*Statistic, error) {
 					}
 					statistic.Values[kv.Key] = f
 				})
+			case "references":
+				s := subKV.Value.(*expvar.Int).String()
+				count, _ := strconv.ParseInt(s, 10, 32)
+				if count < 2 {
+					influxdb.DeleteStatistics(kv.Key)
+				}
 			}
 		})
 
