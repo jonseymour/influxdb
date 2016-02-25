@@ -100,6 +100,7 @@ type FileStore struct {
 	traceLogging bool
 
 	statMap *expvar.Map
+	statKey string
 }
 
 type FileStat struct {
@@ -125,11 +126,13 @@ func (f FileStat) ContainsKey(key string) bool {
 }
 
 func NewFileStore(dir string) *FileStore {
+	statKey := "tsm1_filestore:" + dir
 	return &FileStore{
 		dir:          dir,
 		lastModified: time.Now(),
 		Logger:       log.New(os.Stderr, "[filestore] ", log.LstdFlags),
-		statMap:      influxdb.NewStatistics("tsm1_filestore:"+dir, "tsm1_filestore", map[string]string{"path": dir}),
+		statMap:      influxdb.NewStatistics(statKey, "tsm1_filestore", map[string]string{"path": dir}),
+		statKey:      statKey,
 	}
 }
 
@@ -323,6 +326,8 @@ func (f *FileStore) Close() error {
 	for _, f := range f.files {
 		f.Close()
 	}
+
+	influxdb.DeleteStatistics(f.statKey)
 
 	f.files = nil
 	return nil

@@ -86,9 +86,12 @@ type WAL struct {
 	LoggingEnabled bool
 
 	statMap *expvar.Map
+	statKey string
 }
 
 func NewWAL(path string) *WAL {
+
+	statKey := "tsm1_wal:" + path
 	return &WAL{
 		path: path,
 
@@ -98,7 +101,8 @@ func NewWAL(path string) *WAL {
 		logger:      log.New(os.Stderr, "[tsm1wal] ", log.LstdFlags),
 		closing:     make(chan struct{}),
 
-		statMap: influxdb.NewStatistics("tsm1_wal:"+path, "tsm1_wal", map[string]string{"path": path}),
+		statMap: influxdb.NewStatistics(statKey, "tsm1_wal", map[string]string{"path": path}),
+		statKey: statKey,
 	}
 }
 
@@ -354,6 +358,8 @@ func (l *WAL) Close() error {
 		l.currentSegmentWriter.close()
 		l.currentSegmentWriter = nil
 	}
+
+	influxdb.DeleteStatistics(l.statKey)
 
 	return nil
 }
