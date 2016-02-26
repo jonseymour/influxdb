@@ -1,0 +1,89 @@
+package stats
+
+import (
+	"expvar"
+	"sync"
+
+	influxexpvar "github.com/influxdata/influxdb/expvar"
+)
+
+// A singleton reference to the stats registry
+var Root Registry = &registry{
+	listeners: make([]*listener, 0),
+}
+
+// A filter which can be used to get all statistics.
+var AllStatistics = func(s Statistics) bool {
+	return true
+}
+
+// A type used views to register observers of new registrations
+// and to issuing clean hints.
+type registryClient interface {
+	clean()
+	onOpen(lf func(o Registration)) func()
+}
+
+// A type used to allow callbacks to be deregistered
+type listener struct {
+	callback func(Registration)
+	closer   func()
+}
+
+// A type used to represent a registry of all Statistics objects
+type registry struct {
+	mu        sync.RWMutex
+	listeners []*listener
+}
+
+// Ensure the top level map is always registered.
+func init() {
+
+	r := &expvar.Map{} // this map is replaceable, since it is a value of a map
+	r.Init()
+
+	influxexpvar.Get().Set("statistics", r)
+}
+
+// Cleans the registry to remove statistics that have been closed.
+func (r *registry) clean() {
+
+	// rebuild the registry map
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	cleaned := &expvar.Map{}
+	cleaned.Init()
+	r.do(func(stats Registration) {
+		if stats.Refs() > 0 {
+			cleaned.Set(stats.Key(), stats)
+		}
+	})
+	influxexpvar.Get().Set("statistics", cleaned)
+}
+
+func (r *registry) Open() View {
+	return newView(r)
+}
+
+// Iterate over all statistics irrespective of
+// whether they are closed or not and without
+// any cleaning behaviour.
+//
+// The caller is responsible for acquiring an appropriate
+// lock.
+func (r *registry) do(f func(s Registration)) {
+	r.getStatistics().Do(func(kv expvar.KeyValue) {
+		f(kv.Value.(Registration))
+	})
+}
+
+// get the "statistics" map from the "influx" map - this map is replaceable
+func (r *registry) getStatistics() *expvar.Map {
+	return influxexpvar.Get().Get("statistics").(*expvar.Map)
+}
+
+// Create a new builder that retains a reference to the registry.
+func (r *registry) NewBuilder(k string, n string, tags map[string]string) Builder {
+	return newBuilder(k, n, tags, r)
+}
