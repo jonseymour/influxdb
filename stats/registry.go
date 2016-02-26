@@ -3,6 +3,8 @@ package stats
 import (
 	"expvar"
 	"sync"
+
+	influxexpvar "github.com/influxdata/influxdb/expvar"
 )
 
 // A singleton reference to the stats registry
@@ -53,14 +55,11 @@ type registry struct {
 
 // Ensure the top level map is always registered.
 func init() {
-	m := &expvar.Map{} // this map can't be replaced because it is a top level map
-	m.Init()
 
 	r := &expvar.Map{} // this map is replaceable, since it is a value of a map
 	r.Init()
 
-	m.Set("statistics", r)
-	expvar.Publish("influx", m)
+	influxexpvar.Get().Set("statistics", r)
 }
 
 // Cleans the registry to remove statistics that have been closed.
@@ -77,7 +76,7 @@ func (r *registry) clean() {
 			cleaned.Set(stats.Key(), stats)
 		}
 	})
-	r.getInflux().Set("statistics", cleaned)
+	influxexpvar.Get().Set("statistics", cleaned)
 }
 
 //
@@ -135,14 +134,9 @@ func (r *registry) Filter(f func(s Statistics) bool) []Statistics {
 	return results
 }
 
-// get the "influx" map from expvar - this map is not replacable
-func (r *registry) getInflux() *expvar.Map {
-	return expvar.Get("influx").(*expvar.Map)
-}
-
 // get the "statistics" map from the "influx" map - this map is replaceable
 func (r *registry) getStatistics() *expvar.Map {
-	return r.getInflux().Get("statistics").(*expvar.Map)
+	return influxexpvar.Get().Get("statistics").(*expvar.Map)
 }
 
 // Create a new builder that retains a reference to the registry.

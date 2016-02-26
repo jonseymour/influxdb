@@ -1,13 +1,11 @@
 package monitor // import "github.com/influxdata/influxdb/monitor"
 
 import (
-	"expvar"
 	"fmt"
 	"log"
 	"os"
 	"runtime"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 
@@ -15,6 +13,7 @@ import (
 	"github.com/influxdata/influxdb/models"
 	"github.com/influxdata/influxdb/monitor/diagnostics"
 	"github.com/influxdata/influxdb/services/meta"
+	"github.com/influxdata/influxdb/stats"
 )
 
 const leaderWaitTimeout = 30 * time.Second
@@ -38,6 +37,8 @@ type Monitor struct {
 	mu   sync.Mutex
 
 	diagRegistrations map[string]diagnostics.Client
+
+	statsCloser func()
 
 	storeCreated           bool
 	storeEnabled           bool
@@ -96,6 +97,20 @@ func (m *Monitor) Open() error {
 	m.RegisterDiagnosticsClient("network", &network{})
 	m.RegisterDiagnosticsClient("system", &system{})
 
+	// We register a listener for the stats registry so that
+	// when a new Statistics object is opened, we can add our own reference
+	// to it.
+	//
+	// The objective of adding the reference is to prevent the statistic
+	// being removed from the registry until the monitor has had a chance
+	// to publish the last set of updates. When the monitor's reference
+	// is the only reference left, we can release the reference
+	// obtained here.
+	//
+	m.statsCloser = stats.Root.OnOpen(func(o stats.Observable) {
+		_ = o.Observe()
+	})
+
 	// If enabled, record stats in a InfluxDB system.
 	if m.storeEnabled {
 
@@ -112,6 +127,10 @@ func (m *Monitor) Close() {
 	m.Logger.Println("shutting down monitor system")
 	close(m.done)
 	m.wg.Wait()
+	if m.statsCloser != nil {
+		m.statsCloser()
+		m.statsCloser = nil
+	}
 	m.done = nil
 }
 
@@ -140,15 +159,12 @@ func (m *Monitor) DeregisterDiagnosticsClient(name string) {
 func (m *Monitor) Statistics(tags map[string]string) ([]*Statistic, error) {
 	var statistics []*Statistic
 
-	expvar.Do(func(kv expvar.KeyValue) {
-		// Skip built-in expvar stats.
-		if kv.Key == "memstats" || kv.Key == "cmdline" {
-			return
-		}
+	stats.Root.Do(func(s stats.Statistics) {
 
 		statistic := &Statistic{
+			Name:   s.Name(),
 			Tags:   make(map[string]string),
-			Values: make(map[string]interface{}),
+			Values: s.Values(),
 		}
 
 		// Add any supplied tags.
@@ -156,52 +172,13 @@ func (m *Monitor) Statistics(tags map[string]string) ([]*Statistic, error) {
 			statistic.Tags[k] = v
 		}
 
-		// Every other top-level expvar value is a map.
-		m := kv.Value.(*expvar.Map)
+		for k, v := range s.Tags() {
+			statistic.Tags[k] = v
+		}
 
-		m.Do(func(subKV expvar.KeyValue) {
-			switch subKV.Key {
-			case "name":
-				// straight to string name.
-				u, err := strconv.Unquote(subKV.Value.String())
-				if err != nil {
-					return
-				}
-				statistic.Name = u
-			case "tags":
-				// string-string tags map.
-				n := subKV.Value.(*expvar.Map)
-				n.Do(func(t expvar.KeyValue) {
-					u, err := strconv.Unquote(t.Value.String())
-					if err != nil {
-						return
-					}
-					statistic.Tags[t.Key] = u
-				})
-			case "values":
-				// string-interface map.
-				n := subKV.Value.(*expvar.Map)
-				n.Do(func(kv expvar.KeyValue) {
-					var f interface{}
-					var err error
-					switch v := kv.Value.(type) {
-					case *expvar.Float:
-						f, err = strconv.ParseFloat(v.String(), 64)
-						if err != nil {
-							return
-						}
-					case *expvar.Int:
-						f, err = strconv.ParseInt(v.String(), 10, 64)
-						if err != nil {
-							return
-						}
-					default:
-						return
-					}
-					statistic.Values[kv.Key] = f
-				})
-			}
-		})
+		if !s.IsOpen() {
+			s.StopObserving()
+		}
 
 		// If a registered client has no field data, don't include it in the results
 		if len(statistic.Values) == 0 {
