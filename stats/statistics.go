@@ -123,18 +123,13 @@ func (s *statistics) Build() (StatisticsSet, error) {
 	if err := s.checkNotBuilt(); err != nil {
 		return nil, err
 	}
+
 	s.built = true
 
 	tmp := influxdb.NewStatistics(s.key, s.name, s.tags)
-	for k, v := range s.intVars {
-		tmp.Set(k, v)
-	}
-	for k, v := range s.floatVars {
-		tmp.Set(k, v)
-	}
-	for k, v := range s.stringVars {
-		tmp.Set(k, v)
-	}
+	s.impl.Do(func(kv expvar.KeyValue) {
+		tmp.Set(kv.Key, kv.Value)
+	})
 	s.impl = tmp
 
 	return s, nil
