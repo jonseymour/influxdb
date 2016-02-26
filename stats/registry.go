@@ -52,14 +52,14 @@ func (r *registry) Do(f func(s Statistics)) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	closed := map[string]bool{}
+	closed := map[string]struct{}{}
 	r.getRoot().Do(func(kv expvar.KeyValue) {
 		set := kv.Value.(Statistics)
 		if set.Refs() > 0 {
 			f(set)
 		}
 		if set.Refs() == 0 {
-			closed[kv.Key] = true
+			closed[kv.Key] = struct{}{}
 		}
 	})
 
@@ -73,7 +73,7 @@ func (r *registry) Do(f func(s Statistics)) {
 		cleaned := &expvar.Map{}
 		cleaned.Init()
 		r.getRoot().Do(func(kv expvar.KeyValue) {
-			if !closed[kv.Key] {
+			if _, closed := closed[kv.Key]; !closed {
 				cleaned.Set(kv.Key, kv.Value)
 			}
 		})
