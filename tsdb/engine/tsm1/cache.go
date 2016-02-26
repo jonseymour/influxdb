@@ -92,21 +92,22 @@ type Cache struct {
 	// This number is the number of pending or failed WriteSnaphot attempts since the last successful one.
 	snapshotAttempts int
 
-	stats        stats.StatisticsSet
+	stats        stats.Statistics
 	lastSnapshot time.Time
 }
 
 // NewCache returns an instance of a cache which will use a maximum of maxSize bytes of memory.
 // Only used for engine caches, never for snapshots
 func NewCache(maxSize uint64, path string) *Cache {
-	stats := stats.NewStatisticsSetBuilder("tsm1_cache:"+path, "tsm1_cache", map[string]string{"path": path}).
+	stats := stats.Root.NewBuilder("tsm1_cache:"+path, "tsm1_cache", map[string]string{"path": path}).
 		DeclareInt(statCacheAgeMs, 0).
 		DeclareInt(statCachedBytes, 0).
 		DeclareInt(statSnapshots, 0).
 		DeclareInt(statCacheDiskBytes, 0).
 		DeclareInt(statCacheMemoryBytes, 0).
 		DeclareInt(statWALCompactionTimeMs, 0).
-		MustBuild()
+		MustBuild().
+		Open()
 
 	c := &Cache{
 		maxSize:      maxSize,
