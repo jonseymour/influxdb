@@ -39,10 +39,12 @@ type registry struct {
 
 // ensure the top level map is always registered
 func init() {
-	m := &expvar.Map{}
+	m := &expvar.Map{} // this map can't be replaced because it is a top level map
 	m.Init()
-	r := &expvar.Map{}
+
+	r := &expvar.Map{} // this map is replaceable, since it is a value of a map
 	r.Init()
+
 	m.Set("root", r)
 	expvar.Publish("influx", m)
 }
@@ -68,6 +70,11 @@ func (r *registry) Do(f func(s Statistics)) {
 
 	// rebuild the registry map
 	if len(closed) > 0 {
+
+		// if this ever becomes too expensive, we might arrange things so that the
+		// cleaning happens once the number of closed entries exceeds a certain
+		// number or percentage of the map size.
+
 		cleaned := &expvar.Map{}
 		cleaned.Init()
 		r.getRoot().Do(func(kv expvar.KeyValue) {
@@ -79,12 +86,12 @@ func (r *registry) Do(f func(s Statistics)) {
 	}
 }
 
-// get the top level map from expvar
+// get the "influx" map from expvar - this map is not replacable
 func (r *registry) getInflux() *expvar.Map {
 	return expvar.Get("influx").(*expvar.Map)
 }
 
-// get the top level map from expvar
+// get the "root" map from the "influx" map - this map is replaceable
 func (r *registry) getRoot() *expvar.Map {
 	return r.getInflux().Get("root").(*expvar.Map)
 }
