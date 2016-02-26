@@ -1,7 +1,6 @@
 package tsm1
 
 import (
-	"expvar"
 	"fmt"
 	"log"
 	"os"
@@ -9,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/influxdata/influxdb"
+	"github.com/influxdata/influxdb/stats"
 )
 
 var ErrCacheMemoryExceeded = fmt.Errorf("cache maximum memory size exceeded")
@@ -93,21 +92,27 @@ type Cache struct {
 	// This number is the number of pending or failed WriteSnaphot attempts since the last successful one.
 	snapshotAttempts int
 
-	statMap      *expvar.Map // nil for snapshots.
-	statKey      string
+	stats        stats.StatisticsSet
 	lastSnapshot time.Time
 }
 
 // NewCache returns an instance of a cache which will use a maximum of maxSize bytes of memory.
 // Only used for engine caches, never for snapshots
 func NewCache(maxSize uint64, path string) *Cache {
-	statKey := "tsm1_cache:" + path
+	stats := stats.NewStatisticsSetBuilder("tsm1_cache:"+path, "tsm1_cache", map[string]string{"path": path}).
+		DeclareInt(statCacheAgeMs, 0).
+		DeclareInt(statCachedBytes, 0).
+		DeclareInt(statSnapshots, 0).
+		DeclareInt(statCacheDiskBytes, 0).
+		DeclareInt(statCacheMemoryBytes, 0).
+		DeclareInt(statWALCompactionTimeMs, 0).
+		MustBuild()
+
 	c := &Cache{
 		maxSize:      maxSize,
 		store:        make(map[string]*entry),
-		statMap:      influxdb.NewStatistics(statKey, "tsm1_cache", map[string]string{"path": path}),
 		lastSnapshot: time.Now(),
-		statKey:      statKey,
+		stats:        stats,
 	}
 	c.UpdateAge()
 	c.UpdateCompactTime(0)
@@ -451,39 +456,32 @@ func (cl *CacheLoader) Load(cache *Cache) error {
 func (c *Cache) UpdateAge() {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	ageStat := new(expvar.Int)
-	ageStat.Set(int64(time.Now().Sub(c.lastSnapshot) / time.Millisecond))
-	c.statMap.Set(statCacheAgeMs, ageStat)
+	c.stats.SetInt(statCacheAgeMs, int64(time.Now().Sub(c.lastSnapshot)/time.Millisecond))
 }
 
 // Updates WAL compaction time statistic
 func (c *Cache) UpdateCompactTime(d time.Duration) {
-	c.statMap.Add(statWALCompactionTimeMs, int64(d/time.Millisecond))
+	c.stats.AddInt(statWALCompactionTimeMs, int64(d/time.Millisecond))
 }
 
 // Update the cachedBytes counter
 func (c *Cache) updateCachedBytes(b uint64) {
-	c.statMap.Add(statCachedBytes, int64(b))
+	c.stats.AddInt(statCachedBytes, int64(b))
 }
 
 // Update the memSize level
 func (c *Cache) updateMemSize(b int64) {
-	c.statMap.Add(statCacheMemoryBytes, b)
+	c.stats.AddInt(statCacheMemoryBytes, b)
 }
 
 // Update the snapshotsCount and the diskSize levels
 func (c *Cache) updateSnapshots() {
 	// Update disk stats
-	diskSizeStat := new(expvar.Int)
-	diskSizeStat.Set(int64(c.snapshotSize))
-	c.statMap.Set(statCacheDiskBytes, diskSizeStat)
-
-	snapshotsStat := new(expvar.Int)
-	snapshotsStat.Set(int64(c.snapshotAttempts))
-	c.statMap.Set(statSnapshots, snapshotsStat)
+	c.stats.SetInt(statCacheDiskBytes, int64(c.snapshotSize))
+	c.stats.SetInt(statSnapshots, int64(c.snapshotAttempts))
 }
 
 // Ensure that we stop logging these statistics at some point in the future
 func (c *Cache) Close() {
-	influxdb.CloseStatistics(c.statKey)
+	c.stats.Close()
 }
