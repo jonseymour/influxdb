@@ -52,7 +52,9 @@ func (r *registry) Do(f func(s Statistics)) {
 	closed := map[string]bool{}
 	r.getRoot().Do(func(kv expvar.KeyValue) {
 		set := kv.Value.(Statistics)
-		f(set)
+		if set.Refs() > 0 {
+			f(set)
+		}
 		if set.Refs() == 0 {
 			closed[kv.Key] = true
 		}

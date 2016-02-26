@@ -141,10 +141,7 @@ func (m *Monitor) Statistics(tags map[string]string) ([]*Statistic, error) {
 
 	stats.Root.Do(func(s stats.Statistics) {
 
-		switch s.Refs() {
-		case 0:
-			return
-		case 1:
+		if s.Refs() == 1 {
 			s.Close()
 		}
 
