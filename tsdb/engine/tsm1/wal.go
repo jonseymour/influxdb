@@ -359,7 +359,7 @@ func (l *WAL) Close() error {
 		l.currentSegmentWriter = nil
 	}
 
-	influxdb.DeleteStatistics(l.statKey)
+	influxdb.CloseStatistics(l.statKey)
 
 	return nil
 }

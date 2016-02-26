@@ -327,7 +327,7 @@ func (f *FileStore) Close() error {
 		f.Close()
 	}
 
-	influxdb.DeleteStatistics(f.statKey)
+	influxdb.CloseStatistics(f.statKey)
 
 	f.files = nil
 	return nil
