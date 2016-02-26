@@ -8,6 +8,12 @@ import (
 	"github.com/influxdata/influxdb/stats"
 )
 
+func init() {
+	stats.Root.OnOpen(func(o stats.Openable) {
+		_ = o.Open()
+	})
+}
+
 func TestEmptyStatistics(t *testing.T) {
 	found := make([]expvar.KeyValue, 0)
 	influxdb.DoStatistics(func(kv expvar.KeyValue) {

@@ -228,8 +228,8 @@ func (s *statistics) Open() Statistics {
 
 	s.refs++
 
-	if s.refs == 2 {
-		s.registry.Open(s)
+	if s.refs == 1 {
+		s.registry.NotifyOpen(s)
 	}
 	return s
 }

@@ -6,7 +6,9 @@ import (
 )
 
 // A singleton reference to the stats registry
-var Root Registry = &registry{}
+var Root Registry = &registry{
+	listeners: []func(Openable){},
+}
 
 // Provide an interface
 type Registry interface {
@@ -14,8 +16,11 @@ type Registry interface {
 	// Called to obtain a builder of new Statistics object.
 	NewBuilder(k string, n string, tags map[string]string) Builder
 
-	// Called to register a successfully opened Statistics with the registry.
-	Open(s Statistics)
+	// Notify the registry that statistics object has been opened for the first time.
+	NotifyOpen(s Statistics)
+
+	// Register a listener for NotifyOpen events.
+	OnOpen(listener func(s Openable))
 
 	// Called to iterate over the registered statistics sets
 	Do(f func(s Statistics))
@@ -28,7 +33,8 @@ type Registry interface {
 
 // manages the registry of all statistics sets
 type registry struct {
-	mu sync.RWMutex
+	mu        sync.RWMutex
+	listeners []func(Openable)
 }
 
 // ensure the top level map is always registered
@@ -97,7 +103,7 @@ func (r *registry) NewBuilder(k string, n string, tags map[string]string) Builde
 		name:       n,
 		tags:       tags,
 		impl:       impl,
-		refs:       1, // an implicit open on behalf of the monitor
+		refs:       0,
 		intVars:    map[string]*expvar.Int{},
 		stringVars: map[string]*expvar.String{},
 		floatVars:  map[string]*expvar.Float{},
@@ -106,17 +112,22 @@ func (r *registry) NewBuilder(k string, n string, tags map[string]string) Builde
 	return builder
 }
 
-func (r *registry) Open(s Statistics) {
+func (r *registry) NotifyOpen(s Statistics) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if s.Refs() >= 2 {
-		// the Statistics object doesn't iterated over until ref count is at least 2
-		// this prevents the monitor prematurely closing it before the first Open() call
-		// has been made.
-		r.getRoot().Set(s.Key(), s)
+	for _, f := range r.listeners {
+		f(s)
 	}
+	r.getRoot().Set(s.Key(), s)
 	return
+}
+
+func (r *registry) OnOpen(l func(o Openable)) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.listeners = append(r.listeners, l)
 }
 
 func (r *registry) Close(k string) {

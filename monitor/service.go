@@ -95,6 +95,10 @@ func (m *Monitor) Open() error {
 	m.RegisterDiagnosticsClient("network", &network{})
 	m.RegisterDiagnosticsClient("system", &system{})
 
+	stats.Root.OnOpen(func(o stats.Openable) {
+		_ = o.Open() // updates the reference count so there are at least two references now.
+	})
+
 	// If enabled, record stats in a InfluxDB system.
 	if m.storeEnabled {
 
