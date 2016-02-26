@@ -114,11 +114,6 @@ func NewCache(maxSize uint64, path string) *Cache {
 		lastSnapshot: time.Now(),
 		stats:        stats,
 	}
-	c.UpdateAge()
-	c.UpdateCompactTime(0)
-	c.updateCachedBytes(0)
-	c.updateMemSize(0)
-	c.updateSnapshots()
 	return c
 }
 
@@ -140,7 +135,7 @@ func (c *Cache) Write(key string, values []Value) error {
 	c.mu.Unlock()
 
 	// Update the memory size stat
-	c.updateMemSize(int64(addedSize))
+	c.stats.AddInt(statCacheMemoryBytes, int64(addedSize))
 
 	return nil
 }
@@ -170,7 +165,7 @@ func (c *Cache) WriteMulti(values map[string][]Value) error {
 	c.mu.Unlock()
 
 	// Update the memory size stat
-	c.updateMemSize(int64(totalSz))
+	c.stats.AddInt(statCacheMemoryBytes, int64(totalSz))
 
 	return nil
 }
@@ -207,8 +202,9 @@ func (c *Cache) Snapshot() *Cache {
 	c.size = 0
 	c.lastSnapshot = time.Now()
 
-	c.updateMemSize(-int64(snapshotSize)) // decrement the number of bytes in cache
-	c.updateCachedBytes(snapshotSize)     // increment the number of bytes added to the snapshot
+	c.stats.AddInt(statCacheMemoryBytes, -int64(snapshotSize)) // decrement the number of bytes in cache
+	c.stats.AddInt(statCachedBytes, int64(snapshotSize))
+
 	c.updateSnapshots()
 
 	return c.snapshot
@@ -462,16 +458,6 @@ func (c *Cache) UpdateAge() {
 // Updates WAL compaction time statistic
 func (c *Cache) UpdateCompactTime(d time.Duration) {
 	c.stats.AddInt(statWALCompactionTimeMs, int64(d/time.Millisecond))
-}
-
-// Update the cachedBytes counter
-func (c *Cache) updateCachedBytes(b uint64) {
-	c.stats.AddInt(statCachedBytes, int64(b))
-}
-
-// Update the memSize level
-func (c *Cache) updateMemSize(b int64) {
-	c.stats.AddInt(statCacheMemoryBytes, b)
 }
 
 // Update the snapshotsCount and the diskSize levels
