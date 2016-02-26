@@ -1,13 +1,11 @@
 package monitor // import "github.com/influxdata/influxdb/monitor"
 
 import (
-	"expvar"
 	"fmt"
 	"log"
 	"os"
 	"runtime"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 
@@ -15,6 +13,7 @@ import (
 	"github.com/influxdata/influxdb/models"
 	"github.com/influxdata/influxdb/monitor/diagnostics"
 	"github.com/influxdata/influxdb/services/meta"
+	"github.com/influxdata/influxdb/stats"
 )
 
 const leaderWaitTimeout = 30 * time.Second
@@ -96,6 +95,10 @@ func (m *Monitor) Open() error {
 	m.RegisterDiagnosticsClient("network", &network{})
 	m.RegisterDiagnosticsClient("system", &system{})
 
+	stats.Root.OnOpen(func(o stats.Openable) {
+		_ = o.Open() // updates the reference count so there are at least two references now.
+	})
+
 	// If enabled, record stats in a InfluxDB system.
 	if m.storeEnabled {
 
@@ -140,68 +143,25 @@ func (m *Monitor) DeregisterDiagnosticsClient(name string) {
 func (m *Monitor) Statistics(tags map[string]string) ([]*Statistic, error) {
 	var statistics []*Statistic
 
-	expvar.Do(func(kv expvar.KeyValue) {
-		// Skip built-in expvar stats.
-		if kv.Key == "memstats" || kv.Key == "cmdline" {
-			return
+	stats.Root.Do(func(s stats.Statistics) {
+
+		if s.Refs() == 1 {
+			s.Close()
+		}
+
+		extendedTags := map[string]string{}
+		for k, v := range tags {
+			extendedTags[k] = v
+		}
+		for k, v := range s.Tags() {
+			extendedTags[k] = v
 		}
 
 		statistic := &Statistic{
-			Tags:   make(map[string]string),
-			Values: make(map[string]interface{}),
+			Name:   s.Name(),
+			Tags:   extendedTags,
+			Values: s.Values(),
 		}
-
-		// Add any supplied tags.
-		for k, v := range tags {
-			statistic.Tags[k] = v
-		}
-
-		// Every other top-level expvar value is a map.
-		m := kv.Value.(*expvar.Map)
-
-		m.Do(func(subKV expvar.KeyValue) {
-			switch subKV.Key {
-			case "name":
-				// straight to string name.
-				u, err := strconv.Unquote(subKV.Value.String())
-				if err != nil {
-					return
-				}
-				statistic.Name = u
-			case "tags":
-				// string-string tags map.
-				n := subKV.Value.(*expvar.Map)
-				n.Do(func(t expvar.KeyValue) {
-					u, err := strconv.Unquote(t.Value.String())
-					if err != nil {
-						return
-					}
-					statistic.Tags[t.Key] = u
-				})
-			case "values":
-				// string-interface map.
-				n := subKV.Value.(*expvar.Map)
-				n.Do(func(kv expvar.KeyValue) {
-					var f interface{}
-					var err error
-					switch v := kv.Value.(type) {
-					case *expvar.Float:
-						f, err = strconv.ParseFloat(v.String(), 64)
-						if err != nil {
-							return
-						}
-					case *expvar.Int:
-						f, err = strconv.ParseInt(v.String(), 10, 64)
-						if err != nil {
-							return
-						}
-					default:
-						return
-					}
-					statistic.Values[kv.Key] = f
-				})
-			}
-		})
 
 		// If a registered client has no field data, don't include it in the results
 		if len(statistic.Values) == 0 {
