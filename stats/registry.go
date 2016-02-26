@@ -24,11 +24,6 @@ type Registry interface {
 
 	// Called to iterate over the registered statistics sets
 	Do(f func(s Statistics))
-
-	// Deprecated method.
-	// Called to close a statistics set by name. Only required until
-	// influxdb.CloseStatistics() is deleted.
-	Close(k string)
 }
 
 // manages the registry of all statistics sets
@@ -135,13 +130,4 @@ func (r *registry) OnOpen(l func(o Openable)) {
 	defer r.mu.Unlock()
 
 	r.listeners = append(r.listeners, l)
-}
-
-func (r *registry) Close(k string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if v := r.getRoot().Get(k); v != nil {
-		v.(Statistics).Close()
-	}
 }
