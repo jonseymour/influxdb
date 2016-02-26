@@ -95,8 +95,18 @@ func (m *Monitor) Open() error {
 	m.RegisterDiagnosticsClient("network", &network{})
 	m.RegisterDiagnosticsClient("system", &system{})
 
+	// We register a listener for the stats registry so that
+	// when a new Statistics object is opened, we can add our own reference
+	// to it.
+	//
+	// The objective of adding the reference is to prevent the statistic
+	// being removed from the registry until the monitor has had a chance
+	// to publish the last set of updates. When the monitor's reference
+	// is the only reference left, we can release the reference
+	// obtained here.
+	//
 	stats.Root.OnOpen(func(o stats.Openable) {
-		_ = o.Open() // updates the reference count so there are at least two references now.
+		_ = o.Open()
 	})
 
 	// If enabled, record stats in a InfluxDB system.
@@ -145,22 +155,27 @@ func (m *Monitor) Statistics(tags map[string]string) ([]*Statistic, error) {
 
 	stats.Root.Do(func(s stats.Statistics) {
 
-		if s.Refs() == 1 {
-			s.Close()
-		}
-
-		extendedTags := map[string]string{}
-		for k, v := range tags {
-			extendedTags[k] = v
-		}
-		for k, v := range s.Tags() {
-			extendedTags[k] = v
-		}
-
 		statistic := &Statistic{
 			Name:   s.Name(),
-			Tags:   extendedTags,
+			Tags:   make(map[string]string),
 			Values: s.Values(),
+		}
+
+		// Add any supplied tags.
+		for k, v := range tags {
+			statistic.Tags[k] = v
+		}
+
+		for k, v := range s.Tags() {
+			statistic.Tags[k] = v
+		}
+
+		if s.Refs() == 1 {
+			// In this case, the monitor's reference is the only remaining
+			// open reference to the Statistics object, s. Since there are no other open
+			// references (and hence no more updates possible), it is safe for the monitor
+			// to release its reference, so it does so now.
+			s.Close()
 		}
 
 		// If a registered client has no field data, don't include it in the results
