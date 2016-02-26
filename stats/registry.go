@@ -7,7 +7,7 @@ import (
 
 // A singleton reference to the stats registry
 var Root Registry = &registry{
-	listeners: []func(Openable){},
+	listeners: make([]*listenerTicket, 0),
 }
 
 // Provide an interface
@@ -19,8 +19,9 @@ type Registry interface {
 	// Notify the registry that statistics object has been opened for the first time.
 	NotifyOpen(s Statistics)
 
-	// Register a listener for NotifyOpen events.
-	OnOpen(listener func(s Openable))
+	// Register a listener for NotifyOpen events. The returned function will
+	// deregister the listener when called.
+	OnOpen(listener func(s Openable)) func()
 
 	// Called to iterate over the registered statistics sets
 	Do(f func(s Statistics))
@@ -29,7 +30,7 @@ type Registry interface {
 // manages the registry of all statistics sets
 type registry struct {
 	mu        sync.RWMutex
-	listeners []func(Openable)
+	listeners []*listenerTicket
 }
 
 // ensure the top level map is always registered
@@ -118,16 +119,37 @@ func (r *registry) NotifyOpen(s Statistics) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	for _, f := range r.listeners {
-		f(s)
+	for _, t := range r.listeners {
+		t.callback(s)
 	}
 	r.getRoot().Set(s.Key(), s)
 	return
 }
 
-func (r *registry) OnOpen(l func(o Openable)) {
+func (r *registry) OnOpen(l func(o Openable)) func() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.listeners = append(r.listeners, l)
+	ticket := &listenerTicket{
+		callback: l,
+	}
+	ticket.closer = func() {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+
+		for i, e := range r.listeners {
+			if e == ticket {
+				r.listeners = append(r.listeners[:i], r.listeners[i+1:]...)
+				return
+			}
+		}
+
+	}
+	r.listeners = append(r.listeners, ticket)
+	return ticket.closer
+}
+
+type listenerTicket struct {
+	callback func(Openable)
+	closer   func()
 }

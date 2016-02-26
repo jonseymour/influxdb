@@ -38,6 +38,8 @@ type Monitor struct {
 
 	diagRegistrations map[string]diagnostics.Client
 
+	statsCloser func()
+
 	storeCreated           bool
 	storeEnabled           bool
 	storeDatabase          string
@@ -105,7 +107,7 @@ func (m *Monitor) Open() error {
 	// is the only reference left, we can release the reference
 	// obtained here.
 	//
-	stats.Root.OnOpen(func(o stats.Openable) {
+	m.statsCloser = stats.Root.OnOpen(func(o stats.Openable) {
 		_ = o.Open()
 	})
 
@@ -125,6 +127,10 @@ func (m *Monitor) Close() {
 	m.Logger.Println("shutting down monitor system")
 	close(m.done)
 	m.wg.Wait()
+	if m.statsCloser != nil {
+		m.statsCloser()
+		m.statsCloser = nil
+	}
 	m.done = nil
 }
 

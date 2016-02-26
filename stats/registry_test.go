@@ -6,12 +6,6 @@ import (
 	"github.com/influxdata/influxdb/stats"
 )
 
-func init() {
-	stats.Root.OnOpen(func(o stats.Openable) {
-		_ = o.Open()
-	})
-}
-
 func TestEmptyStatistics(t *testing.T) {
 	found := make([]stats.Statistics, 0)
 	stats.Root.Do(func(s stats.Statistics) {
@@ -25,6 +19,10 @@ func TestEmptyStatistics(t *testing.T) {
 
 // Test that we can create one statistic and that it disappears after it is deleted twice.
 func TestOneStatistic(t *testing.T) {
+	closer := stats.Root.OnOpen(func(o stats.Openable) {
+		_ = o.Open()
+	})
+	defer closer()
 
 	foo := stats.Root.
 		NewBuilder("foo", "bar", map[string]string{"tag": "T"}).
