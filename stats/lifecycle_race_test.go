@@ -34,8 +34,8 @@ func TestLifeCycleRaces(t *testing.T) {
 		monitor := func() {
 			defer wg.Done()
 			<-start
-			closer := stats.Root.OnOpen(func(s stats.Openable) {
-				s.Open()
+			closer := stats.Root.OnOpen(func(s stats.Statistics) {
+				s.OpenObserver()
 			})
 			defer closer()
 
@@ -43,7 +43,7 @@ func TestLifeCycleRaces(t *testing.T) {
 				seen[s.Key()] = struct{}{}
 				s.Values()
 				if s.Refs() == 1 {
-					s.Close()
+					s.CloseObserver()
 				}
 			}
 

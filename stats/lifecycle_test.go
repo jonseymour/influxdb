@@ -17,12 +17,13 @@ func TestNotifyOpenOrderStatisticFirst(t *testing.T) {
 	observed := []stats.Statistics{}
 	defer func() {
 		for _, e := range observed {
-			e.Close()
+			e.CloseObserver()
 		}
 	}()
 
-	closer := stats.Root.OnOpen(func(s stats.Openable) {
-		observed = append(observed, s.Open())
+	closer := stats.Root.OnOpen(func(s stats.Statistics) {
+		s.OpenObserver()
+		observed = append(observed, s)
 	})
 	defer closer()
 
@@ -36,12 +37,12 @@ func TestNotifyOpenOrderObserverFirst(t *testing.T) {
 	observed := []stats.Statistics{}
 	defer func() {
 		for _, e := range observed {
-			e.Close()
+			e.CloseObserver()
 		}
 	}()
 
-	closer := stats.Root.OnOpen(func(s stats.Openable) {
-		observed = append(observed, s.Open())
+	closer := stats.Root.OnOpen(func(s stats.Statistics) {
+		observed = append(observed, s.OpenObserver())
 	})
 	defer closer()
 

@@ -8,12 +8,8 @@ import (
 var ErrAlreadyBuilt = errors.New("builder method must not be called in built state")
 var ErrStatAlreadyDeclared = errors.New("statistic has already been declared")
 
-// This type forces the consumer of a Builder's Build() or MustBuild() method to issue an Open()
-// call before attempting to use the StatistcsSet(). It helps to ensure that the
-// location that invokes Open() is the owner of the responsibilty for issuing the subsequent
-// Close()
-type Openable interface {
-	Open() Statistics
+type Built interface {
+	Open() Owner
 }
 
 // This interface is used to declare the statistics fields during initialisation
@@ -22,8 +18,8 @@ type Builder interface {
 	DeclareInt(n string, iv int64) Builder
 	DeclareString(n string, iv string) Builder
 	DeclareFloat(n string, iv float64) Builder
-	Build() (Openable, error)
-	MustBuild() Openable
+	Build() (Built, error)
+	MustBuild() Built
 }
 
 func newBuilder(k string, n string, tags map[string]string, r *registry) Builder {
@@ -105,7 +101,7 @@ func (s *statistics) DeclareFloat(n string, iv float64) Builder {
 }
 
 // Finish building a Statistics returning an error on failure
-func (s *statistics) Build() (Openable, error) {
+func (s *statistics) Build() (Built, error) {
 	if err := s.checkNotBuilt(); err != nil {
 		return nil, err
 	}
@@ -122,7 +118,7 @@ func (s *statistics) Build() (Openable, error) {
 }
 
 // Finish building a Statistics and panic on failure.
-func (s *statistics) MustBuild() Openable {
+func (s *statistics) MustBuild() Built {
 	if set, err := s.Build(); err != nil {
 		panic(err)
 	} else {

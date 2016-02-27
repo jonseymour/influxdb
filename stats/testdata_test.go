@@ -45,7 +45,7 @@ func (d *TestData) applyToBuilder(t *testing.T, b stats.Builder) {
 	}
 }
 
-func (d *TestData) applyToStatistics(t *testing.T, s stats.Statistics) {
+func (d *TestData) applyToStatistics(t *testing.T, s stats.Owner) {
 	result := dontPanic(func() {
 
 		switch d.method {

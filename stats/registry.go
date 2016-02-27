@@ -31,7 +31,7 @@ type Registry interface {
 	//
 	// Listeners are always invoked on goroutines that currently do not hold
 	// any locks over the Registry.
-	OnOpen(listener func(s Openable)) func()
+	OnOpen(listener func(s Statistics)) func()
 
 	// Called to iterate over the registered statistics sets.
 	Do(f func(s Statistics))
@@ -42,7 +42,7 @@ type Registry interface {
 
 // A type used to allow callbacks to be deregistered
 type listener struct {
-	callback func(Openable)
+	callback func(Statistics)
 	closer   func()
 }
 

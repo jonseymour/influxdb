@@ -1,7 +1,7 @@
 package stats
 
 // Return true if there is less than 2 references to the receiver
-func (s *statistics) Open() Statistics {
+func (s *statistics) open(owner bool) {
 	var notify bool
 
 	s.mu.Lock()
@@ -16,7 +16,20 @@ func (s *statistics) Open() Statistics {
 	if notify {
 		s.registry.NotifyOpen(s)
 	}
+}
+
+func (s *statistics) Open() Owner {
+	s.open(true)
 	return s
+}
+
+func (s *statistics) OpenObserver() Statistics {
+	s.open(false)
+	return s
+}
+
+func (s *statistics) CloseObserver() {
+	s.Close()
 }
 
 // Return true if there is less than 2 references to the receiver
@@ -61,7 +74,7 @@ func (r *registry) NotifyOpen(s Statistics) {
 // Register a new OnOpen listener. The listener will receive notifications for
 // all open Statistics currently in the Registry and for any objects that are
 // subsequently added.
-func (r *registry) OnOpen(lf func(o Openable)) func() {
+func (r *registry) OnOpen(lf func(o Statistics)) func() {
 
 	existing := []Statistics{}
 

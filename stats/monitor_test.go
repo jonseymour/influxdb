@@ -40,11 +40,11 @@ func (m *testMonitor) Close() {
 	m.Observe()
 }
 
-func (m *testMonitor) onOpen(s stats.Openable) {
+func (m *testMonitor) onOpen(s stats.Statistics) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	s.Open()
+	s.OpenObserver()
 	m.count++
 }
 
@@ -67,7 +67,7 @@ func (m *testMonitor) Observe() []stats.Statistics {
 		observed = append(observed, s)
 		if s.Refs() == 1 {
 			m.count--
-			s.Close()
+			s.CloseObserver()
 			return
 		}
 	})

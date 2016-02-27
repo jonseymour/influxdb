@@ -13,7 +13,6 @@ var ErrStatDeclaredWithDifferentType = errors.New("statistic declared with diffe
 // This interface is used at runtime by objects that are described by Statistics
 type Statistics interface {
 	expvar.Var
-	Openable
 
 	// The statistic key
 	Key() string
@@ -26,20 +25,26 @@ type Statistics interface {
 	// A raw values map
 	Values() map[string]interface{}
 
-	// Set a level statistics to a particular integer value
-	SetInt(n string, i int64) Statistics
-	// Set a level statistic to a particular float value
-	SetFloat(n string, f float64) Statistics
-	// Set a string statistic
-	SetString(n string, s string) Statistics
-
-	// Add an int value to an int statistic
-	AddInt(n string, i int64) Statistics
-	// Add a float value to a float statistic
-	AddFloat(n string, f float64) Statistics
+	OpenObserver() Statistics
+	CloseObserver()
 
 	// The number of open references to the receiver.
 	Refs() int
+}
+
+type Owner interface {
+	Statistics
+	// Set a level statistics to a particular integer value
+	SetInt(n string, i int64) Owner
+	// Set a level statistic to a particular float value
+	SetFloat(n string, f float64) Owner
+	// Set a string statistic
+	SetString(n string, s string) Owner
+
+	// Add an int value to an int statistic
+	AddInt(n string, i int64) Owner
+	// Add a float value to a float statistic
+	AddFloat(n string, f float64) Owner
 	// Drop one reference to the object obtained with Open(). T
 	// The described object closes the Statistics object first, then the monitor.
 	Close()
@@ -105,30 +110,30 @@ func (s *statistics) Values() map[string]interface{} {
 	return values
 }
 
-func (s *statistics) SetInt(n string, i int64) Statistics {
+func (s *statistics) SetInt(n string, i int64) Owner {
 	s.assertDeclaredAs(n, "int")
 	s.intVars[n].Set(i)
 	return s
 }
-func (s *statistics) SetFloat(n string, f float64) Statistics {
+func (s *statistics) SetFloat(n string, f float64) Owner {
 	s.assertDeclaredAs(n, "float")
 	s.floatVars[n].Set(f)
 	return s
 }
 
-func (s *statistics) SetString(n string, v string) Statistics {
+func (s *statistics) SetString(n string, v string) Owner {
 	s.assertDeclaredAs(n, "string")
 	s.stringVars[n].Set(v)
 	return s
 }
 
-func (s *statistics) AddInt(n string, i int64) Statistics {
+func (s *statistics) AddInt(n string, i int64) Owner {
 	s.assertDeclaredAs(n, "int")
 	s.intVars[n].Add(i)
 	return s
 }
 
-func (s *statistics) AddFloat(n string, f float64) Statistics {
+func (s *statistics) AddFloat(n string, f float64) Owner {
 	s.assertDeclaredAs(n, "float")
 	s.floatVars[n].Add(f)
 	return s
