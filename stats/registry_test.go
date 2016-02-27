@@ -19,15 +19,16 @@ func TestEmptyStatistics(t *testing.T) {
 
 // Test that we can create one statistic and that it disappears after it is deleted twice.
 func TestOneStatistic(t *testing.T) {
-	closer := stats.Root.OnOpen(func(o stats.Openable) {
-		_ = o.Open()
-	})
-	defer closer()
 
 	foo := stats.Root.
 		NewBuilder("foo", "bar", map[string]string{"tag": "T"}).
 		MustBuild().
 		Open()
+	defer func() {
+		if foo != nil {
+			foo.Close()
+		}
+	}()
 
 	found := make([]stats.Statistics, 0)
 	stats.Root.Do(func(s stats.Statistics) {
@@ -43,18 +44,7 @@ func TestOneStatistic(t *testing.T) {
 	}
 
 	foo.Close()
-
-	found = make([]stats.Statistics, 0)
-	stats.Root.Do(func(s stats.Statistics) {
-		found = append(found, s)
-		if s.Refs() == 1 {
-			s.Close()
-		}
-	})
-
-	if length := len(found); length != 1 {
-		t.Fatalf("failed to find expected number of objects. got: %d, expected: 1", length)
-	}
+	foo = nil
 
 	found = make([]stats.Statistics, 0)
 	stats.Root.Do(func(s stats.Statistics) {
