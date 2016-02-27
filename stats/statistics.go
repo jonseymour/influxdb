@@ -1,31 +1,10 @@
 package stats
 
 import (
-	"errors"
 	"expvar"
 	"strconv"
 	"sync"
 )
-
-var ErrAlreadyBuilt = errors.New("builder method must not be called in built state")
-
-// This interface is used to declare the statistics fields during initialisation
-// of a Statistics interface. A builder may be used at most once.
-type Builder interface {
-	DeclareInt(n string, iv int64) Builder
-	DeclareString(n string, iv string) Builder
-	DeclareFloat(n string, iv float64) Builder
-	Build() (Openable, error)
-	MustBuild() Openable
-}
-
-// This type forces the consumer of a Builder's Build() or MustBuild() method to issue an Open()
-// call before attempting to use the StatistcsSet(). It helps to ensure that the
-// location that invokes Open() is the owner of the responsibilty for issuing the subsequent
-// Close()
-type Openable interface {
-	Open() Statistics
-}
 
 // This interface is used at runtime by objects that are described by Statistics
 type Statistics interface {
@@ -75,78 +54,6 @@ type statistics struct {
 	floatVars  map[string]*expvar.Float
 	built      bool
 	refs       int
-}
-
-// Checks whether the receiver has already been built and returns an error if it has
-func (s *statistics) checkNotBuilt() error {
-	if s.built {
-		return ErrAlreadyBuilt
-	} else {
-		return nil
-	}
-}
-
-// Calls checkNotBuilt and panic if an error is returned
-func (s *statistics) assertNotBuilt() {
-	if err := s.checkNotBuilt(); err != nil {
-		panic(err)
-	}
-}
-
-// Declare an integer statistic
-func (s *statistics) DeclareInt(n string, iv int64) Builder {
-	s.assertNotBuilt()
-	v := &expvar.Int{}
-	v.Set(iv)
-	s.impl.Set(n, v)
-	s.intVars[n] = v
-	return s
-}
-
-// Declare a string statistic
-func (s *statistics) DeclareString(n string, iv string) Builder {
-	s.assertNotBuilt()
-	v := &expvar.String{}
-	v.Set(iv)
-	s.impl.Set(n, v)
-	s.stringVars[n] = v
-	return s
-}
-
-// Declare a float statistic
-func (s *statistics) DeclareFloat(n string, iv float64) Builder {
-	s.assertNotBuilt()
-	v := &expvar.Float{}
-	v.Set(iv)
-	s.impl.Set(n, v)
-	s.floatVars[n] = v
-	return s
-}
-
-// Finish building a Statistics returning an error on failure
-func (s *statistics) Build() (Openable, error) {
-	if err := s.checkNotBuilt(); err != nil {
-		return nil, err
-	}
-
-	s.built = true
-	tmp := &expvar.Map{}
-	tmp.Init()
-	s.impl.Do(func(kv expvar.KeyValue) {
-		tmp.Set(kv.Key, kv.Value)
-	})
-	s.impl = tmp
-
-	return s, nil
-}
-
-// Finish building a Statistics and panic on failure.
-func (s *statistics) MustBuild() Openable {
-	if set, err := s.Build(); err != nil {
-		panic(err)
-	} else {
-		return set
-	}
 }
 
 func (s *statistics) Key() string {
@@ -219,39 +126,4 @@ func (s *statistics) AddFloat(n string, f float64) Statistics {
 
 func (s *statistics) String() string {
 	return s.impl.String()
-}
-
-// Return true if there is less than 2 references to the receiver
-func (s *statistics) Open() Statistics {
-	var notify bool
-
-	s.mu.RLock()
-	s.refs++
-	notify = (s.refs == 1)
-	s.mu.RUnlock()
-
-	// Perform this notification outside of a lock.
-	// Inside of a lock, there is no room to move.
-	//
-	// With apologies to Groucho Marx.
-	if notify {
-		s.registry.NotifyOpen(s)
-	}
-	return s
-}
-
-// Return true if there is less than 2 references to the receiver
-func (s *statistics) Refs() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return s.refs
-}
-
-// Release one reference to the receiver.
-func (s *statistics) Close() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.refs--
 }
