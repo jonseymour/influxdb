@@ -98,7 +98,7 @@ type FileStore struct {
 	Logger       *log.Logger
 	traceLogging bool
 
-	stats stats.Statistics
+	stats stats.Owner
 }
 
 type FileStat struct {

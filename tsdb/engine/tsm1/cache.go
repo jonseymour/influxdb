@@ -105,7 +105,7 @@ type Cache struct {
 	// This number is the number of pending or failed WriteSnaphot attempts since the last successful one.
 	snapshotAttempts int
 
-	stats        stats.Statistics
+	stats        stats.Owner
 	lastSnapshot time.Time
 }
 

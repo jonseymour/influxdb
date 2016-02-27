@@ -107,8 +107,8 @@ func (m *Monitor) Open() error {
 	// is the only reference left, we can release the reference
 	// obtained here.
 	//
-	m.statsCloser = stats.Root.OnOpen(func(o stats.Openable) {
-		_ = o.Open()
+	m.statsCloser = stats.Root.OnOpen(func(o stats.Statistics) {
+		_ = o.OpenObserver()
 	})
 
 	// If enabled, record stats in a InfluxDB system.
@@ -204,7 +204,7 @@ func (m *Monitor) Statistics(tags map[string]string) ([]*Statistic, error) {
 			// This comment is left here for others to ponder in the very unlikely event that the
 			// assumption implicit in the condition of the enclosing 'if' statement ever
 			// becomes invalid.
-			s.Close()
+			s.CloseObserver()
 		}
 
 		// If a registered client has no field data, don't include it in the results

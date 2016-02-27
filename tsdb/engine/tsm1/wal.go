@@ -84,7 +84,7 @@ type WAL struct {
 	// LoggingEnabled specifies if detailed logs should be output
 	LoggingEnabled bool
 
-	stats stats.Statistics
+	stats stats.Owner
 }
 
 func NewWAL(path string) *WAL {
