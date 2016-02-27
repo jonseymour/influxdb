@@ -2,7 +2,6 @@ package influxdb
 
 import (
 	"expvar"
-
 	"github.com/influxdata/influxdb/stats"
 )
 
