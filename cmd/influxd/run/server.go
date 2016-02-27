@@ -14,6 +14,7 @@ import (
 
 	"github.com/influxdata/influxdb"
 	"github.com/influxdata/influxdb/cluster"
+	"github.com/influxdata/influxdb/expvar"
 	"github.com/influxdata/influxdb/models"
 	"github.com/influxdata/influxdb/monitor"
 	"github.com/influxdata/influxdb/services/admin"
@@ -30,6 +31,7 @@ import (
 	"github.com/influxdata/influxdb/services/snapshotter"
 	"github.com/influxdata/influxdb/services/subscriber"
 	"github.com/influxdata/influxdb/services/udp"
+	"github.com/influxdata/influxdb/stats"
 	"github.com/influxdata/influxdb/tcp"
 	"github.com/influxdata/influxdb/tsdb"
 	client "github.com/influxdata/usage-client/v1"
@@ -177,6 +179,8 @@ func NewServer(c *Config, buildInfo *BuildInfo) (*Server, error) {
 
 		config: c,
 	}
+
+	stats.Init(map[string]interface{}{"container": expvar.Get()})
 
 	if c.Meta.Enabled {
 		s.MetaService = meta.NewService(c.Meta)
