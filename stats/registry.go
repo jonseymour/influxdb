@@ -195,7 +195,7 @@ func (r *registry) OnOpen(lf func(o Openable)) func() {
 	})
 
 	r.listeners = append(r.listeners, l)
-	defer r.mu.Unlock()
+	r.mu.Unlock()
 
 	// Call the listener on objects that were already in the map before we added a listener.
 	for _, s := range existing {
