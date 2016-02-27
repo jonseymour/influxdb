@@ -151,7 +151,7 @@ func (r *registry) NotifyOpen(s Statistics) {
 	r.mu.RLock()
 	clone := make([]*listener, len(r.listeners))
 	copy(clone, r.listeners)
-	defer r.mu.RUnlock()
+	r.mu.RUnlock()
 
 	// call the each of the cloned listeners without holding any lock
 	for _, l := range clone {
