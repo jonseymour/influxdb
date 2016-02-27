@@ -223,18 +223,12 @@ func (s *statistics) String() string {
 
 // Return true if there is less than 2 references to the receiver
 func (s *statistics) Open() Statistics {
-	var notify bool
-
 	s.mu.RLock()
-	s.refs++
-	notify = (s.refs == 1)
-	s.mu.RUnlock()
+	defer s.mu.RUnlock()
 
-	// Perform this notification outside of a lock.
-	// Inside of a lock, there is no room to move.
-	//
-	// With apologies to Groucho Marx.
-	if notify {
+	s.refs++
+
+	if s.refs == 1 {
 		s.registry.NotifyOpen(s)
 	}
 	return s

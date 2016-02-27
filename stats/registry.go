@@ -151,7 +151,7 @@ func (r *registry) NotifyOpen(s Statistics) {
 	r.mu.RLock()
 	clone := make([]*listener, len(r.listeners))
 	copy(clone, r.listeners)
-	r.mu.RUnlock()
+	defer r.mu.RUnlock()
 
 	// call the each of the cloned listeners without holding any lock
 	for _, l := range clone {
@@ -195,7 +195,7 @@ func (r *registry) OnOpen(lf func(o Openable)) func() {
 	})
 
 	r.listeners = append(r.listeners, l)
-	r.mu.Unlock()
+	defer r.mu.Unlock()
 
 	// Call the listener on objects that were already in the map before we added a listener.
 	for _, s := range existing {
