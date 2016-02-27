@@ -25,6 +25,25 @@ type Builder interface {
 	MustBuild() Openable
 }
 
+func newBuilder(k string, n string, tags map[string]string, r *registry) Builder {
+	impl := &expvar.Map{}
+	impl.Init()
+
+	builder := &statistics{
+		registry:   r,
+		key:        k,
+		name:       n,
+		tags:       tags,
+		impl:       impl,
+		refs:       0,
+		intVars:    map[string]*expvar.Int{},
+		stringVars: map[string]*expvar.String{},
+		floatVars:  map[string]*expvar.Float{},
+	}
+
+	return builder
+}
+
 // Checks whether the receiver has already been built and returns an error if it has
 func (s *statistics) checkNotBuilt() error {
 	if s.built {

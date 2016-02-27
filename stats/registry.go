@@ -124,21 +124,5 @@ func (r *registry) getStatistics() *expvar.Map {
 
 // Create a new builder that retains a reference to the registry.
 func (r *registry) NewBuilder(k string, n string, tags map[string]string) Builder {
-
-	impl := &expvar.Map{}
-	impl.Init()
-
-	builder := &statistics{
-		registry:   r,
-		key:        k,
-		name:       n,
-		tags:       tags,
-		impl:       impl,
-		refs:       0,
-		intVars:    map[string]*expvar.Int{},
-		stringVars: map[string]*expvar.String{},
-		floatVars:  map[string]*expvar.Float{},
-	}
-
-	return builder
+	return newBuilder(k, n, tags, r)
 }
