@@ -6,6 +6,7 @@ import (
 )
 
 var ErrAlreadyBuilt = errors.New("builder method must not be called in built state")
+var ErrStatAlreadyDeclared = errors.New("statistic has already been declared")
 
 // This type forces the consumer of a Builder's Build() or MustBuild() method to issue an Open()
 // call before attempting to use the StatistcsSet(). It helps to ensure that the
@@ -39,6 +40,7 @@ func newBuilder(k string, n string, tags map[string]string, r *registry) Builder
 		intVars:    map[string]*expvar.Int{},
 		stringVars: map[string]*expvar.String{},
 		floatVars:  map[string]*expvar.Float{},
+		types:      map[string]string{},
 	}
 
 	return builder
@@ -60,33 +62,45 @@ func (s *statistics) assertNotBuilt() {
 	}
 }
 
+func (s *statistics) assertNotDeclared(n string) {
+	if _, ok := s.types[n]; ok {
+		panic(ErrStatAlreadyDeclared)
+	}
+}
+
 // Declare an integer statistic
 func (s *statistics) DeclareInt(n string, iv int64) Builder {
 	s.assertNotBuilt()
+	s.assertNotDeclared(n)
 	v := &expvar.Int{}
 	v.Set(iv)
 	s.impl.Set(n, v)
 	s.intVars[n] = v
+	s.types[n] = "int"
 	return s
 }
 
 // Declare a string statistic
 func (s *statistics) DeclareString(n string, iv string) Builder {
 	s.assertNotBuilt()
+	s.assertNotDeclared(n)
 	v := &expvar.String{}
 	v.Set(iv)
 	s.impl.Set(n, v)
 	s.stringVars[n] = v
+	s.types[n] = "string"
 	return s
 }
 
 // Declare a float statistic
 func (s *statistics) DeclareFloat(n string, iv float64) Builder {
 	s.assertNotBuilt()
+	s.assertNotDeclared(n)
 	v := &expvar.Float{}
 	v.Set(iv)
 	s.impl.Set(n, v)
 	s.floatVars[n] = v
+	s.types[n] = "float"
 	return s
 }
 
