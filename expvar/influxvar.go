@@ -5,8 +5,10 @@
 // Callers can force the initialization of the package by using the
 // public Get() method.
 //
-// Originally created to resolve a circular dependency between the 'stats' package
-// and the influxdb.NewStatistics() function.
+// This package was originally created to resolve an illegal circular dependency
+// between the 'influxdb/stats/registry.go' module and
+// the 'influxdb/influxvar.go' module.
+//
 package expvar
 
 import (
