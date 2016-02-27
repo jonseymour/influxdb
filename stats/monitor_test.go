@@ -74,7 +74,7 @@ func (m *testMonitor) Observe() []stats.Statistics {
 	return observed
 }
 
-func TestMonitorWithNoActivity(t *testing.T) {
+func TestSimulateMonitorBehaviour(t *testing.T) {
 	// check that a monitor of an idle registry sees nothing
 
 	monitor := NewTestMonitor()
