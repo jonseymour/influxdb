@@ -10,6 +10,11 @@ var Root Registry = &registry{
 	listeners: make([]*listener, 0),
 }
 
+// A filter which can be used to get all statistics.
+var AllStatistics = func(s Statistics) bool {
+	return true
+}
+
 // Provide an interface
 type Registry interface {
 
@@ -26,8 +31,11 @@ type Registry interface {
 	// any locks over the Registry.
 	OnOpen(listener func(s Openable)) func()
 
-	// Called to iterate over the registered statistics sets
+	// Called to iterate over the registered statistics sets.
 	Do(f func(s Statistics))
+
+	// Creates a filtered copy of statistics that match the specified filter.
+	Filter(filter func(s Statistics) bool) []Statistics
 }
 
 // A type used to allow callbacks to be deregistered
@@ -110,6 +118,20 @@ func (r *registry) do(f func(s Statistics)) {
 	r.getStatistics().Do(func(kv expvar.KeyValue) {
 		f(kv.Value.(Statistics))
 	})
+}
+
+// Add support for returning a filtered collection of Statistics
+func (r *registry) Filter(f func(s Statistics) bool) []Statistics {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	results := []Statistics{}
+	r.Do(func(s Statistics) {
+		if f(s) {
+			results = append(results, s)
+		}
+	})
+	return results
 }
 
 // get the "influx" map from expvar - this map is not replacable
