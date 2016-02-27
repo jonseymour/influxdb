@@ -4,10 +4,10 @@ package stats
 func (s *statistics) Open() Statistics {
 	var notify bool
 
-	s.mu.RLock()
+	s.mu.Lock()
 	s.refs++
 	notify = (s.refs == 1)
-	s.mu.RUnlock()
+	s.mu.Unlock()
 
 	// Perform this notification outside of a lock.
 	// Inside of a lock, there is no room to move.
