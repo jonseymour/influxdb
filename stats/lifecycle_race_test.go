@@ -67,13 +67,11 @@ func TestLifeCycleRaces(t *testing.T) {
 
 			defer aStats.Close()
 
-			for aStats.(stats.Registration).Refs() < 2 {
-				for n := 0; n < nloops; n++ {
-					aStats.
-						AddInt("value", int64(1)).
-						SetInt("index", int64(n))
-					time.Sleep(time.Microsecond * 100)
-				}
+			for n := 0; n < nloops; n++ {
+				aStats.
+					AddInt("value", int64(1)).
+					SetInt("index", int64(n))
+				time.Sleep(time.Microsecond * 100)
 			}
 		}
 

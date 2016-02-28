@@ -7,16 +7,6 @@ import (
 	influxexpvar "github.com/influxdata/influxdb/expvar"
 )
 
-// A singleton reference to the stats registry
-var Root Registry = &registry{
-	listeners: make([]*listener, 0),
-}
-
-// A filter which can be used to get all statistics.
-var AllStatistics = func(s Statistics) bool {
-	return true
-}
-
 // This type is used by the View and the Registry to manage the
 // life cycle and visibility of statistics within the registry
 // and the view.
@@ -93,7 +83,7 @@ func (r *registry) Open() View {
 // lock.
 func (r *registry) do(f func(s registration)) {
 	r.getStatistics().Do(func(kv expvar.KeyValue) {
-		f(kv.Value.(Registration))
+		f(kv.Value.(registration))
 	})
 }
 

@@ -7,9 +7,6 @@ import (
 	"sync"
 )
 
-var ErrStatNotDeclared = errors.New("statistic has not been declared")
-var ErrStatDeclaredWithDifferentType = errors.New("statistic declared with different type")
-
 // The type which is used to implement both the Builder and Statistics interface
 type statistics struct {
 	mu         sync.RWMutex
