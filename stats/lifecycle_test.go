@@ -7,31 +7,22 @@ import (
 	"github.com/influxdata/influxdb/stats"
 )
 
-func TestNotifyOpenOrderStatisticFirst(t *testing.T) {
+func TestStatisticsFirst(t *testing.T) {
 	stat := stats.Root.
 		NewBuilder("key", "name", map[string]string{"tag": "T"}).
 		MustBuild().
 		Open()
 	defer stat.Close()
 
-	observed := []stats.Statistics{}
-	collector := func(s stats.Statistics) {
-		observed = append(observed, s)
-	}
-	stats.Root.Open().Do(collector).Close()
+	observed := stats.Collect(stats.Root.Open(), true)
 
-	expected := []stats.Statistics{stat}
+	expected := stats.Collection{stat}
 	if !reflect.DeepEqual(expected, observed) {
 		t.Fatalf("did not observe existing statistic. got: %+v, expected: %+v", observed, expected)
 	}
 }
 
-func TestNotifyOpenOrderObserverFirst(t *testing.T) {
-	observed := []stats.Statistics{}
-	collector := func(s stats.Statistics) {
-		observed = append(observed, s)
-	}
-
+func TestMonitorFirst(t *testing.T) {
 	view := stats.Root.Open()
 	defer view.Close()
 
@@ -41,9 +32,8 @@ func TestNotifyOpenOrderObserverFirst(t *testing.T) {
 		Open()
 	defer stat.Close()
 
-	view.Do(collector)
-
-	expected := []stats.Statistics{stat}
+	observed := stats.Collect(view, false)
+	expected := stats.Collection{stat}
 	if !reflect.DeepEqual(expected, observed) {
 		t.Fatalf("did not observe new statistic. got: %+v, expected: %+v", observed, expected)
 	}

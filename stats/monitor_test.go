@@ -29,11 +29,7 @@ func NewTestMonitor() *testMonitor {
 }
 
 func (m *testMonitor) Close() {
-	m.mu.Lock()
-
 	m.view.Close()
-	m.mu.Unlock()
-
 	m.Observe()
 }
 
@@ -42,13 +38,8 @@ func (m *testMonitor) Close() {
 // Statistics.Close() call is that the first call to Observe()
 // will include a set of statistics that includes the closed
 // Statistics objectnd the text one will not.
-func (m *testMonitor) Observe() []stats.Statistics {
-
-	observed := []stats.Statistics{}
-	m.view.Do(func(s stats.Statistics) {
-		observed = append(observed, s)
-	})
-	return observed
+func (m *testMonitor) Observe() stats.Collection {
+	return stats.Collect(m.view, false)
 }
 
 func TestSimulateMonitorBehaviour(t *testing.T) {
@@ -56,7 +47,7 @@ func TestSimulateMonitorBehaviour(t *testing.T) {
 
 	monitor := NewTestMonitor()
 	observed := monitor.Observe()
-	expected := []stats.Statistics{}
+	expected := stats.Collection{}
 	if !reflect.DeepEqual(observed, expected) {
 		t.Fatalf("monitor with no activity should be empty. got: %v, expected: %v", observed, expected)
 	}

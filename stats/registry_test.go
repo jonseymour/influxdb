@@ -7,11 +7,7 @@ import (
 )
 
 func TestEmptyStatistics(t *testing.T) {
-	found := make([]stats.Statistics, 0)
-	collector := func(s stats.Statistics) {
-		found = append(found, s)
-	}
-	stats.Root.Open().Do(collector).Close()
+	found := stats.Collect(stats.Root.Open(), true)
 
 	if length := len(found); length != 0 {
 		t.Fatalf("non empty initial state. got %d, expected: %d", length, 0)
@@ -21,10 +17,7 @@ func TestEmptyStatistics(t *testing.T) {
 // Test that we can create one statistic and that it disappears after it is deleted twice.
 func TestOneStatistic(t *testing.T) {
 
-	found := make([]stats.Statistics, 0)
-	collector := func(s stats.Statistics) {
-		found = append(found, s)
-	}
+	found := stats.Collect(stats.Root.Open(), true)
 
 	foo := stats.Root.
 		NewBuilder("foo", "bar", map[string]string{"tag": "T"}).
@@ -36,7 +29,7 @@ func TestOneStatistic(t *testing.T) {
 		}
 	}()
 
-	stats.Root.Open().Do(collector).Close()
+	found = stats.Collect(stats.Root.Open(), true)
 
 	if len(found) != 1 {
 		t.Fatalf("enumeration error after do. length of slice: got %d, expected %d", len(found), 1)
@@ -49,8 +42,7 @@ func TestOneStatistic(t *testing.T) {
 	foo.Close()
 	foo = nil
 
-	found = make([]stats.Statistics, 0)
-	stats.Root.Open().Do(collector).Close()
+	found = stats.Collect(stats.Root.Open(), true)
 
 	if length := len(found); length != 0 {
 		t.Fatalf("failed to find expected number of objects. got: %d, expected: 0", length)
