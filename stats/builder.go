@@ -4,6 +4,7 @@ import (
 	"expvar"
 )
 
+// Initializes a new Builder and associates with the specified registry.
 func newBuilder(k string, tags map[string]string, r registryClient) Builder {
 	impl := &expvar.Map{}
 	impl.Init()
@@ -13,7 +14,7 @@ func newBuilder(k string, tags map[string]string, r registryClient) Builder {
 		key:        k,
 		tags:       tags,
 		impl:       impl,
-		refs:       0,
+		refsCount:  0,
 		intVars:    map[string]*expvar.Int{},
 		stringVars: map[string]*expvar.String{},
 		floatVars:  map[string]*expvar.Float{},

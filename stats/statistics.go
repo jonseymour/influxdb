@@ -8,18 +8,18 @@ import (
 
 // The type which is used to implement both the Builder and Statistics interface
 type statistics struct {
-	mu         sync.RWMutex
-	registry   registryClient
-	key        string
-	tags       map[string]string
-	impl       *expvar.Map
-	intVars    map[string]*expvar.Int
-	stringVars map[string]*expvar.String
-	floatVars  map[string]*expvar.Float
-	types      map[string]string
-	built      bool
-	isOpen     bool
-	refs       int
+	mu             sync.RWMutex
+	registry       registryClient
+	key            string
+	tags           map[string]string
+	impl           *expvar.Map
+	intVars        map[string]*expvar.Int
+	stringVars     map[string]*expvar.String
+	floatVars      map[string]*expvar.Float
+	types          map[string]string
+	built          bool
+	isRecorderOpen bool
+	refsCount      int
 }
 
 func (s *statistics) Key() string {

@@ -30,7 +30,7 @@ func (v *view) Close() {
 
 	count := 0
 	for _, g := range tmp {
-		if g.StopObserving() == 0 {
+		if g.stopObserving() == 0 {
 			count++
 		}
 	}
@@ -57,7 +57,7 @@ func (v *view) Do(f func(s Statistics)) View {
 	v.mu.RLock()
 	for k, g := range v.registrations {
 		f(g)
-		if !g.IsOpen() {
+		if !g.isOpen() {
 			forgotten[k] = g
 		}
 	}
@@ -75,7 +75,7 @@ func (v *view) Do(f func(s Statistics)) View {
 	// remove the references to the closed refegistrations
 	count := 0
 	for _, g := range forgotten {
-		if g.StopObserving() == 0 {
+		if g.stopObserving() == 0 {
 			count++
 		}
 	}
@@ -88,7 +88,7 @@ func (v *view) Do(f func(s Statistics)) View {
 }
 
 func (v *view) onOpen(g registration) {
-	g.Observe() // outside of a lock
+	g.observe() // outside of a lock
 
 	v.mu.Lock()
 	defer v.mu.Unlock()

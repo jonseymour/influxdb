@@ -4,21 +4,37 @@ import (
 	"errors"
 )
 
+// The error thrown if there is an expected reference counting violation
 var errUnexpectedRefCount = errors.New("unexpected reference counting error")
+
+// This type is used by the View and the Registry to manage the
+// life cycle and visibility of statistics within the registry
+// and the view.
+type registration interface {
+	Statistics
+	// True if the recorder has not yet closed this object.
+	isOpen() bool
+	// Increment the number observers
+	observe()
+	// Decrement the number of observers.
+	stopObserving() int
+	// The number of open references to the receiver.
+	refs() int
+}
 
 // Return true if there is less than 2 references to the receiver
 func (s *statistics) open(owner bool) {
 	var notify bool
 
 	s.mu.Lock()
-	s.refs++
-	notify = (s.refs == 1)
+	s.refsCount++
+	notify = (s.refsCount == 1)
 	if owner {
-		if s.isOpen {
+		if s.isRecorderOpen {
 			s.mu.Unlock()
 			panic(ErrAlreadyOpen)
 		}
-		s.isOpen = true
+		s.isRecorderOpen = true
 	}
 	s.mu.Unlock()
 
@@ -31,45 +47,46 @@ func (s *statistics) open(owner bool) {
 	}
 }
 
+// Open the receiver and register it with the registryClient
 func (s *statistics) Open() Recorder {
 	s.open(true)
 	return s
 }
 
-func (s *statistics) IsOpen() bool {
+func (s *statistics) isOpen() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.isOpen
+	return s.isRecorderOpen
 }
 
-func (s *statistics) Observe() {
+func (s *statistics) observe() {
 	s.open(false)
 }
 
 // Return true if there is less than 2 references to the receiver
-func (s *statistics) Refs() int {
+func (s *statistics) refs() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.refs
+	return s.refsCount
 }
 
 func (s *statistics) close(owner bool) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.refs == 0 {
+	if s.refsCount == 0 {
 		panic(errUnexpectedRefCount)
 	}
 
 	if owner {
-		if !s.isOpen {
+		if !s.isRecorderOpen {
 			panic(ErrAlreadyClosed)
 		}
-		s.isOpen = false
+		s.isRecorderOpen = false
 	}
-	s.refs--
-	return s.refs
+	s.refsCount--
+	return s.refsCount
 }
 
 // Release one reference to the receiver.
@@ -78,7 +95,7 @@ func (s *statistics) Close() {
 }
 
 // Release one reference to the receiver.
-func (s *statistics) StopObserving() int {
+func (s *statistics) stopObserving() int {
 	return s.close(false)
 }
 
@@ -138,7 +155,7 @@ func (r *registry) onOpen(lf func(o registration)) func() {
 
 	// Call the listener on objects that were already in the map before we added a listener.
 	for _, g := range existing {
-		if g.IsOpen() {
+		if g.isOpen() {
 			lf(g)
 		}
 	}
