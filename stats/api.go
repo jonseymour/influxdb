@@ -4,8 +4,8 @@
 // There are several advantages of using this API to manage the expvar namespace
 // over the raw expvar API. The main one is that 'stats' trivially allows Statistics to
 // be removed from the expvar namespace in a way that allows viewers of the namespace
-// to see the final update to a expvar Map immediately prior to the removal of the Map
-// from the namespace. This is achieved by use of the View type which encapsulates
+// to see the final update to a Statistics object immediately prior to the removal of the Statistics
+// object from the namespace. This is achieved by use of the View type which encapsulates
 // a reference counting mechanism which ensures a Statistics object does not disappear from a
 // View until the View has seen the last state of the object prior to it being
 // closed by the owner of its Recorder.
@@ -151,7 +151,7 @@ type Recorder interface {
 	Close()
 }
 
-// The Registry type allows described objects to obtain a Builders used
+// The Registry type allows described objects to obtain Builders used
 // to construct their Recorder instances. For example: a described object might be
 // implemented like this:
 //
@@ -198,8 +198,8 @@ type Registry interface {
 	Open() View
 }
 
-// The View type provides a means for observers of the registry
-// to view the contents of the registry.
+// The View type provides a means for observers of a Registry
+// to view the contents of the Registry.
 //
 // Views are obtained by calling stats.Root.Open().
 type View interface {
@@ -230,5 +230,5 @@ var (
 	ErrAlreadyClosed = errors.New("an object cannot be closed when it is already closed")
 )
 
-// A Collection is a collection of Statistics
+// A Collection is a collection of Statistics.
 type Collection []Statistics
