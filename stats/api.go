@@ -14,6 +14,7 @@
 package stats
 
 import (
+	"errors"
 	"expvar"
 )
 
