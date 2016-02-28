@@ -27,7 +27,7 @@
 // MustBuild() to obtain a reference to a frozen interface of type Built. Assuming this
 // call succeeds, the caller then invokes the Built.Open() method to simultaneously
 // register and obtain a reference to the Recorder interface that will be used at runtime.
-// The Recorder interface that exposes Set and Add methods that allow lock-free access
+// The Recorder interface exposes Set and Add methods that allow lock-free access
 // to slices of the underlying expvar Map variables and a Close() method that can be used
 // by the described object to release resources associated with the Recorder and remove
 // the Statistics object from any open Views.
