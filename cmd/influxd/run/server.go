@@ -180,7 +180,7 @@ func NewServer(c *Config, buildInfo *BuildInfo) (*Server, error) {
 		config: c,
 	}
 
-	stats.Init(expvar.Get())
+	stats.Init(map[string]interface{}{"container": expvar.Get()})
 
 	if c.Meta.Enabled {
 		s.MetaService = meta.NewService(c.Meta)
