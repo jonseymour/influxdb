@@ -172,9 +172,6 @@ type View interface {
 }
 
 var (
-	// The reference to the Registry singleton.
-	Root Registry
-
 	// The panic that is issued if an attempt is made to record an undeclared statistic.
 	ErrStatNotDeclared = errors.New("statistic has not been declared")
 
@@ -187,9 +184,3 @@ var (
 	// The panic that is issued if the same statistic is declared twice.
 	ErrStatAlreadyDeclared = errors.New("statistic has already been declared")
 )
-
-func init() {
-	Root = &registry{
-		listeners: make([]*listener, 0),
-	}
-}

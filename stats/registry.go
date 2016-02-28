@@ -3,8 +3,6 @@ package stats
 import (
 	"expvar"
 	"sync"
-
-	influxexpvar "github.com/influxdata/influxdb/expvar"
 )
 
 // This type is used by the View and the Registry to manage the
@@ -45,15 +43,6 @@ type registry struct {
 	listeners []*listener
 }
 
-// Ensure the top level map is always registered.
-func init() {
-
-	r := &expvar.Map{} // this map is replaceable, since it is a value of a map
-	r.Init()
-
-	influxexpvar.Get().Set("statistics", r)
-}
-
 // Cleans the registry to remove statistics that have been closed.
 func (r *registry) clean() {
 
@@ -68,7 +57,10 @@ func (r *registry) clean() {
 			cleaned.Set(stats.Key(), stats)
 		}
 	})
-	influxexpvar.Get().Set("statistics", cleaned)
+
+	mu.Lock()
+	defer mu.Unlock()
+	container.Set("statistics", cleaned)
 }
 
 func (r *registry) Open() View {
@@ -89,7 +81,9 @@ func (r *registry) do(f func(s registration)) {
 
 // get the "statistics" map from the "influx" map - this map is replaceable
 func (r *registry) getStatistics() *expvar.Map {
-	return influxexpvar.Get().Get("statistics").(*expvar.Map)
+	mu.Lock()
+	defer mu.Unlock()
+	return container.Get("statistics").(*expvar.Map)
 }
 
 // Create a new builder that retains a reference to the registry.
