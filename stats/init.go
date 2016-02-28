@@ -2,15 +2,12 @@ package stats
 
 import (
 	"expvar"
-	"sync"
 )
 
 var (
+	root *registry
 	// The reference to the Registry singleton.
 	Root Registry
-
-	container *expvar.Map
-	mu        sync.Mutex
 )
 
 // Configures the top level expvar Map to be used to contain
@@ -23,29 +20,38 @@ var (
 // all the registered Statistics objects. By making invoking this method, the
 // caller can choose where to place the "statistics" Map.
 //
-func Init(replacement *expvar.Map) {
-	mu.Lock()
-	defer mu.Unlock()
+func Init(config map[string]interface{}) {
+	root.mu.Lock()
+	defer root.mu.Unlock()
 
-	tmp := map[string]expvar.Var{}
-	container.Do(func(kv expvar.KeyValue) {
-		tmp[kv.Key] = kv.Value
-	})
-	for k, v := range tmp {
-		replacement.Set(k, v)
+	if replacement, ok := config["container"]; ok {
+		if replacement, ok := replacement.(*expvar.Map); ok {
+			tmp := map[string]expvar.Var{}
+			root.container.Do(func(kv expvar.KeyValue) {
+				tmp[kv.Key] = kv.Value
+			})
+			for k, v := range tmp {
+				replacement.Set(k, v)
+			}
+			root.container = replacement
+		}
+		panic("container has wrong type")
 	}
-	container = replacement
 }
 
 // Ensure that container is always defined and contains a "statistics" map.
 func init() {
-	Root = &registry{
-		listeners: make([]*listener, 0),
-	}
-	container = &expvar.Map{}
+	container := &expvar.Map{}
 	container.Init()
 
 	stats := &expvar.Map{}
 	stats.Init()
+
 	container.Set("statistics", stats)
+
+	root = &registry{
+		listeners: make([]*listener, 0),
+		container: container,
+	}
+	Root = root
 }

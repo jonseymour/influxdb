@@ -5,17 +5,6 @@ import (
 	"sync"
 )
 
-// A type used views to register observers of new registrations
-// and to issuing clean hints.
-type registryClient interface {
-	// Called by a view object to register a listener for new registrations.
-	onOpen(lf func(o registration)) func()
-	// Called by a statistics object to register itself upon Open.
-	register(r registration)
-	// Called by the client when it detects that cleaning is required.
-	clean()
-}
-
 // A type used to allow callbacks to be deregistered
 type listener struct {
 	callback func(registration)
@@ -26,6 +15,17 @@ type listener struct {
 type registry struct {
 	mu        sync.RWMutex
 	listeners []*listener
+	container *expvar.Map
+}
+
+// Create a new builder that retains a reference to the registry.
+func (r *registry) NewBuilder(k string, tags map[string]string) Builder {
+	return newBuilder(k, tags, r)
+}
+
+// Open a new view over the contents of the registry.
+func (r *registry) Open() View {
+	return newView(r)
 }
 
 // Cleans the registry to remove statistics that have been closed.
@@ -43,13 +43,7 @@ func (r *registry) clean() {
 		}
 	})
 
-	mu.Lock()
-	defer mu.Unlock()
-	container.Set("statistics", cleaned)
-}
-
-func (r *registry) Open() View {
-	return newView(r)
+	r.container.Set("statistics", cleaned)
 }
 
 // Iterate over all statistics irrespective of
@@ -64,14 +58,7 @@ func (r *registry) do(f func(s registration)) {
 	})
 }
 
-// get the "statistics" map from the "influx" map - this map is replaceable
+// get the "statistics" map from the container
 func (r *registry) getStatistics() *expvar.Map {
-	mu.Lock()
-	defer mu.Unlock()
-	return container.Get("statistics").(*expvar.Map)
-}
-
-// Create a new builder that retains a reference to the registry.
-func (r *registry) NewBuilder(k string, tags map[string]string) Builder {
-	return newBuilder(k, tags, r)
+	return r.container.Get("statistics").(*expvar.Map)
 }
