@@ -7,14 +7,14 @@ import (
 type view struct {
 	mu            sync.RWMutex
 	registry      registryClient
-	registrations map[string]Registration
+	registrations map[string]registration
 	closer        func()
 }
 
 func newView(r registryClient) View {
 	v := &view{
 		registry:      r,
-		registrations: make(map[string]Registration),
+		registrations: make(map[string]registration),
 	}
 	v.closer = r.onOpen(v.onOpen)
 	return v
@@ -25,7 +25,7 @@ func (v *view) Close() {
 	v.closer()
 
 	v.mu.Lock()
-	v.registrations = make(map[string]Registration)
+	v.registrations = make(map[string]registration)
 	v.mu.Unlock()
 
 	count := 0
@@ -51,7 +51,7 @@ func (v *view) Close() {
 //
 func (v *view) Do(f func(s Statistics)) View {
 
-	forgotten := map[string]Registration{}
+	forgotten := map[string]registration{}
 
 	// iterate over the view while hold the views read lock
 	v.mu.RLock()
@@ -87,7 +87,7 @@ func (v *view) Do(f func(s Statistics)) View {
 	return v
 }
 
-func (v *view) onOpen(g Registration) {
+func (v *view) onOpen(g registration) {
 	g.Observe() // outside of a lock
 
 	v.mu.Lock()

@@ -13,7 +13,7 @@ var ErrStatDeclaredWithDifferentType = errors.New("statistic declared with diffe
 // The type which is used to implement both the Builder and Statistics interface
 type statistics struct {
 	mu         sync.RWMutex
-	registry   Registry
+	registry   registryClient
 	name       string
 	key        string
 	tags       map[string]string

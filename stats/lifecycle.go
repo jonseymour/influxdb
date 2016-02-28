@@ -17,7 +17,7 @@ func (s *statistics) open(owner bool) {
 	//
 	// With apologies to Groucho Marx.
 	if notify {
-		s.registry.Register(s)
+		s.registry.register(s)
 	}
 }
 
@@ -67,7 +67,7 @@ func (s *statistics) StopObserving() int {
 
 // Used by newly opened Statistics objects to notify OnOpen
 // listeners that a new Statistics object has been registered.
-func (r *registry) Register(g Registration) {
+func (r *registry) register(g registration) {
 
 	// clone the list of listeners
 	r.mu.RLock()
@@ -91,9 +91,9 @@ func (r *registry) Register(g Registration) {
 // Register a new OnOpen listener. The listener will receive notifications for
 // all open Statistics currently in the Registry and for any objects that are
 // subsequently added.
-func (r *registry) onOpen(lf func(o Registration)) func() {
+func (r *registry) onOpen(lf func(o registration)) func() {
 
-	existing := []Registration{}
+	existing := []registration{}
 
 	// add a new listener while holding the write lock
 	r.mu.Lock()
@@ -112,7 +112,7 @@ func (r *registry) onOpen(lf func(o Registration)) func() {
 		}
 	}
 
-	r.do(func(s Registration) {
+	r.do(func(s registration) {
 		existing = append(existing, s)
 	})
 

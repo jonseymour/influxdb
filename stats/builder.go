@@ -8,7 +8,7 @@ import (
 var ErrAlreadyBuilt = errors.New("builder method must not be called in built state")
 var ErrStatAlreadyDeclared = errors.New("statistic has already been declared")
 
-func newBuilder(k string, n string, tags map[string]string, r *registry) Builder {
+func newBuilder(k string, n string, tags map[string]string, r registryClient) Builder {
 	impl := &expvar.Map{}
 	impl.Init()
 

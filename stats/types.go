@@ -96,10 +96,6 @@ type Registry interface {
 	// Create a new Builder of statistics objects.
 	NewBuilder(k string, n string, tags map[string]string) Builder
 
-	// Called by a Statistics implementation to register itself when it
-	// is first opened.
-	Register(r Registration)
-
 	// Open a view of all the registered statistics
 	Open() View
 }

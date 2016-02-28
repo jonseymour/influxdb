@@ -17,16 +17,35 @@ var AllStatistics = func(s Statistics) bool {
 	return true
 }
 
+// This type is used by the View and the Registry to manage the
+// life cycle and visibility of statistics within the registry
+// and the view.
+type registration interface {
+	Statistics
+	// True if the owner has not yet closed this object.
+	IsOpen() bool
+	// Increment the number observers
+	Observe()
+	// Decrement the number of observers.
+	StopObserving() int
+	// The number of open references to the receiver.
+	Refs() int
+}
+
 // A type used views to register observers of new registrations
 // and to issuing clean hints.
 type registryClient interface {
 	clean()
-	onOpen(lf func(o Registration)) func()
+	// Called by a Statistics implementation to register itself when it
+	// is first opened.
+	register(r registration)
+
+	onOpen(lf func(o registration)) func()
 }
 
 // A type used to allow callbacks to be deregistered
 type listener struct {
-	callback func(Registration)
+	callback func(registration)
 	closer   func()
 }
 
@@ -54,7 +73,7 @@ func (r *registry) clean() {
 
 	cleaned := &expvar.Map{}
 	cleaned.Init()
-	r.do(func(stats Registration) {
+	r.do(func(stats registration) {
 		if stats.Refs() > 0 {
 			cleaned.Set(stats.Key(), stats)
 		}
@@ -72,7 +91,7 @@ func (r *registry) Open() View {
 //
 // The caller is responsible for acquiring an appropriate
 // lock.
-func (r *registry) do(f func(s Registration)) {
+func (r *registry) do(f func(s registration)) {
 	r.getStatistics().Do(func(kv expvar.KeyValue) {
 		f(kv.Value.(Registration))
 	})
