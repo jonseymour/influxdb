@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
-	"expvar"
 	"fmt"
 	"io"
 	"math"
@@ -13,9 +12,9 @@ import (
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/influxdata/influxdb"
 	"github.com/influxdata/influxdb/influxql"
 	"github.com/influxdata/influxdb/models"
+	"github.com/influxdata/influxdb/stats"
 	"github.com/influxdata/influxdb/tsdb/internal"
 )
 
@@ -60,7 +59,7 @@ type Shard struct {
 	measurementFields map[string]*MeasurementFields // measurement name to their fields
 
 	// expvar-based stats.
-	statMap *expvar.Map
+	stats stats.Recorder
 
 	// The writer used by the logger.
 	LogOutput io.Writer
@@ -87,13 +86,13 @@ func NewShard(id uint64, index *DatabaseIndex, config ShardConfig, options Engin
 	// Configure statistics collection.
 	key := fmt.Sprintf("shard:%s:%d", config.Path, id)
 	tags := map[string]string{
+		"name":            "shard",
 		"path":            config.Path,
 		"id":              fmt.Sprintf("%d", id),
 		"engine":          options.EngineVersion,
 		"database":        config.Database,
 		"retentionPolicy": config.RetentionPolicy,
 	}
-	statMap := influxdb.NewStatistics(key, "shard", tags)
 
 	return &Shard{
 		index:             index,
@@ -102,7 +101,16 @@ func NewShard(id uint64, index *DatabaseIndex, config ShardConfig, options Engin
 		options:           options,
 		measurementFields: make(map[string]*MeasurementFields),
 
-		statMap:   statMap,
+		stats: stats.Root.
+			NewBuilder(key, tags).
+			DeclareInt(statWritePointsFail, 0).
+			DeclareInt(statFieldsCreate, 0).
+			DeclareInt(statSeriesCreate, 0).
+			DeclareInt(statWriteBytes, 0).
+			DeclareInt(statWritePointsOK, 0).
+			DeclareInt(statWriteReq, 0).
+			MustBuild().
+			Open(),
 		LogOutput: os.Stderr,
 	}
 }
@@ -167,6 +175,7 @@ func (s *Shard) Close() error {
 }
 
 func (s *Shard) close() error {
+	defer s.stats.Close()
 	if s.engine != nil {
 		return s.engine.Close()
 	}
@@ -211,14 +220,14 @@ type SeriesCreate struct {
 
 // WritePoints will write the raw data points and any new metadata to the index in the shard
 func (s *Shard) WritePoints(points []models.Point) error {
-	s.statMap.Add(statWriteReq, 1)
+	s.stats.AddInt(statWriteReq, 1)
 
 	seriesToCreate, fieldsToCreate, seriesToAddShardTo, err := s.validateSeriesAndFields(points)
 	if err != nil {
 		return err
 	}
-	s.statMap.Add(statSeriesCreate, int64(len(seriesToCreate)))
-	s.statMap.Add(statFieldsCreate, int64(len(fieldsToCreate)))
+	s.stats.AddInt(statSeriesCreate, int64(len(seriesToCreate)))
+	s.stats.AddInt(statFieldsCreate, int64(len(fieldsToCreate)))
 
 	// add any new series to the in-memory index
 	if len(seriesToCreate) > 0 {
@@ -275,10 +284,10 @@ func (s *Shard) WritePoints(points []models.Point) error {
 
 	// Write to the engine.
 	if err := s.engine.WritePoints(points, measurementFieldsToSave, seriesToCreate); err != nil {
-		s.statMap.Add(statWritePointsFail, 1)
+		s.stats.AddInt(statWritePointsFail, 1)
 		return fmt.Errorf("engine: %s", err)
 	}
-	s.statMap.Add(statWritePointsOK, int64(len(points)))
+	s.stats.AddInt(statWritePointsOK, int64(len(points)))
 
 	return nil
 }
@@ -399,7 +408,7 @@ func (s *Shard) SeriesCount() (int, error) { return s.engine.SeriesCount() }
 // WriteTo writes the shard's data to w.
 func (s *Shard) WriteTo(w io.Writer) (int64, error) {
 	n, err := s.engine.WriteTo(w)
-	s.statMap.Add(statWriteBytes, int64(n))
+	s.stats.AddInt(statWriteBytes, int64(n))
 	return n, err
 }
 
