@@ -205,3 +205,6 @@ var (
 	// The panic that is issued if the same statistic is declared twice.
 	ErrStatAlreadyDeclared = errors.New("statistic has already been declared")
 )
+
+// A Collection is a collection of statistics
+type Collection []Statistics
