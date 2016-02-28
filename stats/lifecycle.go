@@ -22,20 +22,33 @@ type registration interface {
 	refs() int
 }
 
-// Return true if there is less than 2 references to the receiver
+// Open the Recorder and register it with the registryClient
+func (s *statistics) Open() Recorder {
+	s.open(true)
+	return s
+}
+
+// Close the Recorder.
+func (s *statistics) Close() {
+	s.close(true)
+}
+
+// Increment the reference count,
+// set the isOpen() status and conditionally notify the
+// registry of the new Recorder
 func (s *statistics) open(owner bool) {
 	var notify bool
 
 	s.mu.Lock()
-	s.refsCount++
-	notify = (s.refsCount == 1)
 	if owner {
 		if s.isRecorderOpen {
 			s.mu.Unlock()
 			panic(ErrAlreadyOpen)
 		}
 		s.isRecorderOpen = true
+		notify = true
 	}
+	s.refsCount++
 	s.mu.Unlock()
 
 	// Perform this notification outside of a lock.
@@ -47,30 +60,8 @@ func (s *statistics) open(owner bool) {
 	}
 }
 
-// Open the receiver and register it with the registryClient
-func (s *statistics) Open() Recorder {
-	s.open(true)
-	return s
-}
-
-func (s *statistics) isOpen() bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.isRecorderOpen
-}
-
-func (s *statistics) observe() {
-	s.open(false)
-}
-
-// Return true if there is less than 2 references to the receiver
-func (s *statistics) refs() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return s.refsCount
-}
-
+// Decrement the reference count and conditionally
+// clear the isOpen().
 func (s *statistics) close(owner bool) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -89,12 +80,27 @@ func (s *statistics) close(owner bool) int {
 	return s.refsCount
 }
 
-// Release one reference to the receiver.
-func (s *statistics) Close() {
-	s.close(true)
+// True if the Recorder interface is still open.
+func (s *statistics) isOpen() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.isRecorderOpen
 }
 
-// Release one reference to the receiver.
+// Return true if there is less than 2 references to the receiver
+func (s *statistics) refs() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.refsCount
+}
+
+// Register an observer.
+func (s *statistics) observe() {
+	s.open(false)
+}
+
+// Deregister an observer.
 func (s *statistics) stopObserving() int {
 	return s.close(false)
 }
