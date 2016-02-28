@@ -1,9 +1,3 @@
-package stats
-
-import (
-	"expvar"
-)
-
 // The types defined in this module reflect different states or roles of a Statistics objects.
 //
 // Consumers of Statistics objects get exactly the interface they need to perform
@@ -20,6 +14,11 @@ import (
 // do this, it uses the Registration interface which extends Statistics and provides
 // methods to register and deregister observers and keep track of the number of references.
 //
+package stats
+
+import (
+	"expvar"
+)
 
 // This interface is used to declare the statistics fields during initialisation
 // of a Statistics interface. A builder may be used at most once.
@@ -50,21 +49,6 @@ type Statistics interface {
 	Map() *expvar.Map
 	// A raw values map
 	Values() map[string]interface{}
-}
-
-// This type is used by the View and the Registry to manage the
-// life cycle and visibility of statistics within the registry
-// and the view.
-type Registration interface {
-	Statistics
-	// True if the owner has not yet closed this object.
-	IsOpen() bool
-	// Increment the number observers
-	Observe()
-	// Decrement the number of observers.
-	StopObserving() int
-	// The number of open references to the receiver.
-	Refs() int
 }
 
 // The type is used by the owner of the Statistics object to update it and
