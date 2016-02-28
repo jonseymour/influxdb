@@ -50,9 +50,6 @@ type Statistics interface {
 	Map() *expvar.Map
 	// A raw values map
 	Values() map[string]interface{}
-
-	// True if the owner has not yet closed this object.
-	IsOpen() bool
 }
 
 // This type is used by the View and the Registry to manage the
@@ -60,6 +57,8 @@ type Statistics interface {
 // and the view.
 type Registration interface {
 	Statistics
+	// True if the owner has not yet closed this object.
+	IsOpen() bool
 	// Increment the number observers
 	Observe()
 	// Decrement the number of observers.
