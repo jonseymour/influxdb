@@ -193,17 +193,17 @@ type View interface {
 }
 
 var (
+	// The panic that is issued if the same statistic is declared twice.
+	ErrStatAlreadyDeclared = errors.New("statistic has already been declared")
+
+	// The panic that is issued if the Builder.Build() or Builder.MustBuild() method is called more than once on the same Builder.
+	ErrAlreadyBuilt = errors.New("builder method must not be called in built state")
+
 	// The panic that is issued if an attempt is made to record an undeclared statistic.
 	ErrStatNotDeclared = errors.New("statistic has not been declared")
 
 	// The panic that is issued if an attempt is made record a statistic declared with a different type.
 	ErrStatDeclaredWithDifferentType = errors.New("statistic declared with different type")
-
-	// The panic that is issued if the Builder.Build() or Builder.MustBuild() method is called more than once on the same Builder.
-	ErrAlreadyBuilt = errors.New("builder method must not be called in built state")
-
-	// The panic that is issued if the same statistic is declared twice.
-	ErrStatAlreadyDeclared = errors.New("statistic has already been declared")
 )
 
 // A Collection is a collection of statistics
