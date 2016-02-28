@@ -40,6 +40,7 @@ func (s *statistics) assertNotBuilt() {
 	}
 }
 
+// Asserts that the specifed statistic has not already been declared.
 func (s *statistics) assertNotDeclared(n string) {
 	if _, ok := s.types[n]; ok {
 		panic(ErrStatAlreadyDeclared)
