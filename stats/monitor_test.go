@@ -63,7 +63,6 @@ func TestSimulateMonitorBehaviour(t *testing.T) {
 		NewBuilder("k", map[string]string{"tag": "T"}).
 		MustBuild().
 		Open()
-	defer newStat.Close()
 
 	observed = monitor2.Observe()
 	expected = []stats.Statistics{newStat}

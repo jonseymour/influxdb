@@ -1,5 +1,11 @@
 package stats
 
+import (
+	"errors"
+)
+
+var errUnexpectedRefCount = errors.New("unexpected reference counting error")
+
 // Return true if there is less than 2 references to the receiver
 func (s *statistics) open(owner bool) {
 	var notify bool
@@ -8,6 +14,10 @@ func (s *statistics) open(owner bool) {
 	s.refs++
 	notify = (s.refs == 1)
 	if owner {
+		if s.isOpen {
+			s.mu.Unlock()
+			panic(ErrAlreadyOpen)
+		}
 		s.isOpen = true
 	}
 	s.mu.Unlock()
@@ -48,7 +58,14 @@ func (s *statistics) close(owner bool) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if s.refs == 0 {
+		panic(errUnexpectedRefCount)
+	}
+
 	if owner {
+		if !s.isOpen {
+			panic(ErrAlreadyClosed)
+		}
 		s.isOpen = false
 	}
 	s.refs--

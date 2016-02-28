@@ -217,11 +217,17 @@ var (
 	// The panic that is issued if the Builder.Build() or Builder.MustBuild() method is called more than once on the same Builder.
 	ErrAlreadyBuilt = errors.New("builder method must not be called in built state")
 
+	// The panic that is issued if the Built.Open() method is called while the object is still open.
+	ErrAlreadyOpen = errors.New("an object cannot be opened when it is already open")
+
 	// The panic that is issued if an attempt is made to record an undeclared statistic.
 	ErrStatNotDeclared = errors.New("statistic has not been declared")
 
 	// The panic that is issued if an attempt is made record a statistic declared with a different type.
 	ErrStatDeclaredWithDifferentType = errors.New("statistic declared with different type")
+
+	// The panic that is issued if the Built.Open() method is called while the object is still open.
+	ErrAlreadyClosed = errors.New("an object cannot be closed when it is already closed")
 )
 
 // A Collection is a collection of Statistics
