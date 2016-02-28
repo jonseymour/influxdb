@@ -7,21 +7,6 @@ import (
 // The error thrown if there is an expected reference counting violation
 var errUnexpectedRefCount = errors.New("unexpected reference counting error")
 
-// This type is used by the View and the Registry to manage the
-// life cycle and visibility of statistics within the registry
-// and the view.
-type registration interface {
-	Statistics
-	// True if the recorder has not yet closed this object.
-	isOpen() bool
-	// Increment the number observers
-	observe()
-	// Decrement the number of observers.
-	stopObserving() int
-	// The number of open references to the receiver.
-	refs() int
-}
-
 // Open the Recorder and register it with the registryClient
 func (s *statistics) Open() Recorder {
 	s.open(true)
