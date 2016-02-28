@@ -16,6 +16,13 @@ var (
 // Configures the top level expvar Map to be used to contain
 // the replaceble "statistics" Map. Any existing registrations
 // will be copied into the specified Map.
+//
+// Note: the 'stats' API will operate without this call being
+// made. If this call isn't made, then a walk of the 'expvar' tree
+// with expvar.Do() will not discover the "statistics" Map containing
+// all the registered Statistics objects. By making invoking this method, the
+// caller can choose where to place the "statistics" Map.
+//
 func Init(replacement *expvar.Map) {
 	mu.Lock()
 	defer mu.Unlock()

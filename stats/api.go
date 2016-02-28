@@ -1,8 +1,8 @@
 // The 'stats' package defines a statistics acquisition and monitoring API
 // which uses the go 'expvar' API as the underlying representation mechanism.
 //
-// Their are several advantages of using this API to manage the expvar namespace
-// over the raw expvar API. The main one is that it trivially allows items to
+// There are several advantages of using this API to manage the expvar namespace
+// over the raw expvar API. The main one is that 'stats' trivially allows Statistics to
 // be removed from the expvar namespace in a way that allows viewers of the namespace
 // to see the final update to a expvar Map immediately prior to the removal of the Map
 // from the namespace. This is achieved by use of the View type which encapsulates
@@ -20,17 +20,37 @@
 //
 // For example, consider the life cycle of a Statistics object.
 //
-// It starts out as a Builder, obtained from stats.Root.NewBuilder(), by the object
-// it describes (the so-called 'described object'). The described object then configures
+// A Statistics object starts out as a Builder, obtained from stats.Root.NewBuilder(),
+// by the object it describes - the so-called 'described object'. The described object then configures
 // the Builder by declaring which statistics will be written into the Recorder when the
 // Recorder becomes live. Once the declarations are finished, the described object calls
 // MustBuild() to obtain a reference to a frozen interface of type Built. Assuming this
 // call succeeds, the caller then invokes the Built.Open() method to simultaneously
-// register and obtain a reference to the Recorder interface that will be used at runtime.
+// register, and obtain a reference to, the Recorder interface that will be used during the
+// lifetime of the described object.
+//
 // The Recorder interface exposes Set and Add methods that allow lock-free access
 // to slices of the underlying expvar Map variables and a Close() method that can be used
 // by the described object to release resources associated with the Recorder and remove
 // the Statistics object from any open Views.
+//
+// In code:
+//
+//     foo.stats := stats.Root.
+//        NewBuilder("key", "name", map[string]string{"tag": "T"}). // stats.Builder
+//        DeclareInt("counter",0).                                  // stats.Builder
+//        MustBuild().                                              // stats.Built
+//        Open()                                                    // stats.Recorder
+//
+//
+// During the lifetime of the foo object:
+//
+//     foo.stats.AddInt("counter", 1)
+//
+// Some time later, when foo is closed:
+//
+//     foo.stats.Close()
+//
 //
 package stats
 
