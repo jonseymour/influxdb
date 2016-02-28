@@ -1,15 +1,36 @@
-// The types defined in this module reflect different states or roles of a Statistics objects.
+// The 'stats' package defines a statistics acquisition and monitoring API
+// which uses the go 'expvar' API as the underlying representation mechanism.
 //
-// Consumers of Statistics objects get exactly the interface they need to perform
-// the task their role requires and no more.
+// Their are several advantages of using this API to manage the expvar namespace
+// over the raw expvar API. The main one is that it trivially allows items to
+// be removed from the expvar namespace in a way that allows viewers of the namespace
+// to see the final update to a expvar Map immediately prior to the removal of the Map
+// from the namespace. This is achieved by use of the View type which encapsulates
+// a reference counting mechanism which ensures a Statistics object does not disappear from a
+// View until the View has seen the last state of the object prior to it being
+// closed by the owner of its Recorder.
 //
-// For example, consider the life cycle of a statistics object.
+// The ability to easily remove maps from the 'expvar' namespace is important in long-lived
+// processes that create large number of short-lived variables in the 'expvar' namespace - unless
+// some cleanup mechanism such as the one provided by this package is used resources
+// of various kind (memory, CPU or IO) might be exhausted.
 //
-// It starts out as a Builder, until it is built when it becomes Built. To obtain
-// access to the Recorder interface, the owner must execute Built.Open() which both yields
-// the Recorder instance and registers that instance with the Registry.  The Recorer interface
-// provides access to the Set*() and Add*() methods and a Close() method
-// to be called at the end of the described object's life cycle.
+// The API is designed so that consumers of Statistics objects get exactly
+// the interface they need to perform the task their role requires and no more.
+//
+// For example, consider the life cycle of a Statistics object.
+//
+// It starts out as a Builder, obtained from stats.Root.NewBuilder(), by the object
+// it describes (the so-called 'described object'). The described object then configures
+// the Builder by declaring which statistics will be written into the Recorder when the
+// Recorder becomes live. Once the declarations are finished, the described object calls
+// MustBuild() to obtain a reference to a frozen interface of type Built. Assuming this
+// call succeeds, the caller then invokes the Built.Open() method to simultaneously
+// register and obtain a reference to the Recorder interface that will be used at runtime.
+// The Recorder interface that exposes Set and Add methods that allow lock-free access
+// to slices of the underlying expvar Map variables and a Close() method that can be used
+// by the described object to release resources associated with the Recorder and remove
+// the Statistics object from any open Views.
 //
 package stats
 
