@@ -37,10 +37,10 @@
 // In code:
 //
 //     foo.stats := stats.Root.
-//        NewBuilder("key", "name", map[string]string{"tag": "T"}). // stats.Builder
-//        DeclareInt("counter",0).                                  // stats.Builder
-//        MustBuild().                                              // stats.Built
-//        Open()                                                    // stats.Recorder
+//        NewBuilder("key", map[string]string{"tag": "T"}). // stats.Builder
+//        DeclareInt("counter",0).                          // stats.Builder
+//        MustBuild().                                      // stats.Built
+//        Open()                                            // stats.Recorder
 //
 //
 // During the lifetime of the foo object:
@@ -128,7 +128,7 @@ type Statistics interface {
 // To obtain a Recorder, call the Open() method of a Built instance. For example:
 //
 //     var recorder stats.Recorder = stats.Root.
-//        NewBuilder("key", "name", map[string]string{"tag": "T"}).
+//        NewBuilder("key", map[string]string{"tag": "T"}).
 //        DeclareInt("counter",0).
 //        MustBuild().
 //        Open()
@@ -164,7 +164,7 @@ type Recorder interface {
 //    ...
 //
 //    fooBar := &FooBar{
-//        stats: stats.Root.NewBuilder("foobar:1", "foobar:1", map[string]string{"tags": "T"}).
+//        stats: stats.Root.NewBuilder("foobar:1", map[string]string{"tags": "T"}).
 //           DeclareInt("counter", 0).
 //           MustBuild().
 //           Open(),
