@@ -143,6 +143,8 @@ func (e *Engine) Open() error {
 
 // Close closes the engine.
 func (e *Engine) Close() error {
+	defer e.Cache.Close()
+
 	// Shutdown goroutines and wait.
 	close(e.done)
 	e.wg.Wait()
@@ -154,6 +156,7 @@ func (e *Engine) Close() error {
 	if err := e.FileStore.Close(); err != nil {
 		return err
 	}
+
 	return e.WAL.Close()
 }
 
