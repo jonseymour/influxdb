@@ -65,7 +65,7 @@ func NewEngine(path string, walPath string, opt tsdb.EngineOptions) tsdb.Engine 
 	fs := NewFileStore(path)
 	fs.traceLogging = opt.Config.DataLoggingEnabled
 
-	cache := NewCache(uint64(opt.Config.CacheMaxMemorySize))
+	cache := NewCache(uint64(opt.Config.CacheMaxMemorySize), path)
 
 	c := &Compactor{
 		Dir:       path,
@@ -389,9 +389,21 @@ func (e *Engine) WriteTo(w io.Writer) (n int64, err error) { panic("not implemen
 func (e *Engine) WriteSnapshot() error {
 	// Lock and grab the cache snapshot along with all the closed WAL
 	// filenames associated with the snapshot
+
+	var started *time.Time
+
+	defer func() {
+		if started != nil {
+			e.Cache.UpdateCompactTime(time.Now().Sub(*started))
+		}
+	}()
+
 	closedFiles, snapshot, compactor, err := func() ([]string, *Cache, *Compactor, error) {
 		e.mu.Lock()
 		defer e.mu.Unlock()
+
+		now := time.Now()
+		started = &now
 
 		if err := e.WAL.CloseSegment(); err != nil {
 			return nil, nil, nil, err
@@ -420,7 +432,13 @@ func (e *Engine) WriteSnapshot() error {
 }
 
 // writeSnapshotAndCommit will write the passed cache to a new TSM file and remove the closed WAL segments
-func (e *Engine) writeSnapshotAndCommit(closedFiles []string, snapshot *Cache, compactor *Compactor) error {
+func (e *Engine) writeSnapshotAndCommit(closedFiles []string, snapshot *Cache, compactor *Compactor) (err error) {
+
+	defer func() {
+		if err != nil {
+			e.Cache.ClearSnapshot(false)
+		}
+	}()
 	// write the new snapshot files
 	newFiles, err := compactor.WriteSnapshot(snapshot)
 	if err != nil {
@@ -438,7 +456,7 @@ func (e *Engine) writeSnapshotAndCommit(closedFiles []string, snapshot *Cache, c
 	}
 
 	// clear the snapshot from the in-memory cache, then the old WAL files
-	e.Cache.ClearSnapshot(snapshot)
+	e.Cache.ClearSnapshot(true)
 
 	if err := e.WAL.Remove(closedFiles); err != nil {
 		e.logger.Printf("error removing closed wal segments: %v", err)
@@ -456,6 +474,7 @@ func (e *Engine) compactCache() {
 			return
 
 		default:
+			e.Cache.UpdateAge()
 			if e.ShouldCompactCache(e.WAL.LastWriteTime()) {
 				err := e.WriteSnapshot()
 				if err != nil {
