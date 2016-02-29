@@ -1,4 +1,4 @@
-// Encapsulates access to the top-level influx expvar.Map
+// Package expvar encapsulates access to the top-level influx expvar.Map
 //
 // The init() method of this package guarantees that the map always exist.
 //
@@ -21,6 +21,7 @@ func init() {
 	expvar.Publish("influx", m)
 }
 
+// Get returns a reference to the expvar.Map stored in the top-level "influx" expvar variable.
 func Get() *expvar.Map {
 	return expvar.Get("influx").(*expvar.Map)
 }
