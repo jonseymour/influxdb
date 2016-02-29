@@ -17,7 +17,6 @@ func TestEmptyStatistics(t *testing.T) {
 
 // Test that we can create one statistic and that it disappears after it is deleted twice.
 func TestOneStatistic(t *testing.T) {
-
 	go func() {
 		foo := stats.Root.
 			NewBuilder("foo", map[string]string{"tag": "T"}).
