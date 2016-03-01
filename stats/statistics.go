@@ -8,9 +8,11 @@ import (
 
 // The type which is used to valuesement both the Builder and Statistics interface
 type statistics struct {
+	expvar.Map
 	mu             sync.RWMutex
 	registry       registryClient
 	key            string
+	name           string
 	tags           map[string]string
 	values         *expvar.Map
 	intVars        map[string]*expvar.Int
@@ -26,17 +28,21 @@ func (s *statistics) Key() string {
 	return s.key
 }
 
+func (s *statistics) Name() string {
+	return s.name
+}
+
 func (s *statistics) Tags() map[string]string {
 	return s.tags
 }
 
-func (s *statistics) Map() *expvar.Map {
+func (s *statistics) ValuesMap() *expvar.Map {
 	return s.values
 }
 
 func (s *statistics) Values() map[string]interface{} {
 	values := make(map[string]interface{})
-	n := s.Map()
+	n := s.ValuesMap()
 	n.Do(func(kv expvar.KeyValue) {
 		var f interface{}
 		var err error
@@ -89,10 +95,6 @@ func (s *statistics) AddFloat(n string, f float64) Recorder {
 	s.assertDeclaredAs(n, "float")
 	s.floatVars[n].Add(f)
 	return s
-}
-
-func (s *statistics) String() string {
-	return s.values.String()
 }
 
 // Consideration should be given to either commenting out the valuesementation

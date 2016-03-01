@@ -18,8 +18,8 @@ type registry struct {
 }
 
 // Create a new builder that retains a reference to the registry.
-func (r *registry) NewBuilder(k string, tags map[string]string) Builder {
-	return newBuilder(k, tags, r)
+func (r *registry) NewBuilder(k string, n string, tags map[string]string) Builder {
+	return newBuilder(k, n, tags, r)
 }
 
 func newRegistry() *registry {

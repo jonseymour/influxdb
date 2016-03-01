@@ -36,7 +36,7 @@
 // In code:
 //
 //     foo.stats := stats.Root.
-//        NewBuilder("key", map[string]string{"tag": "T"}). // stats.Builder
+//        NewBuilder("cpu:1", "cpu", map[string]string{"tag": "T"}). // stats.Builder
 //        DeclareInt("counter",0).                          // stats.Builder
 //        MustBuild().                                      // stats.Built
 //        Open()                                            // stats.Recorder
@@ -123,6 +123,10 @@ type Statistics interface {
 
 	// The statistic key.
 	Key() string
+
+	// The name of the statistic set.
+	Name() string
+
 	// The statistic tags.
 	Tags() map[string]string
 
@@ -130,7 +134,7 @@ type Statistics interface {
 	Values() map[string]interface{}
 
 	// The underlying values map - do not use directly, provided for legacy expvar support only.
-	Map() *expvar.Map
+	ValuesMap() *expvar.Map
 }
 
 // The Recorder type is used by described objects to update statistics either by
@@ -184,7 +188,7 @@ type Recorder interface {
 //    ...
 //
 //    fooBar := &FooBar{
-//        stats: stats.Root.NewBuilder("foobar:1", map[string]string{"tags": "T"}).
+//        stats: stats.Root.NewBuilder("foobar:1", "foobar", map[string]string{"tags": "T"}).
 //           DeclareInt("counter", 0).
 //           MustBuild().
 //           Open(),
@@ -212,7 +216,7 @@ type Recorder interface {
 type Registry interface {
 
 	// Create a new Builder of statistics objects.
-	NewBuilder(k string, tags map[string]string) Builder
+	NewBuilder(k string, n string, tags map[string]string) Builder
 
 	// Open a view of all the registered statistics
 	Open() View

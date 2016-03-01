@@ -5,13 +5,15 @@ import (
 )
 
 // Initializes a new Builder and associates with the specified registry.
-func newBuilder(k string, tags map[string]string, r registryClient) Builder {
+func newBuilder(k string, n string, tags map[string]string, r registryClient) Builder {
+
 	values := &expvar.Map{}
 	values.Init()
 
 	builder := &statistics{
 		registry:   r,
 		key:        k,
+		name:       n,
 		tags:       tags,
 		values:     values,
 		refsCount:  0,
@@ -20,6 +22,21 @@ func newBuilder(k string, tags map[string]string, r registryClient) Builder {
 		floatVars:  map[string]*expvar.Float{},
 		types:      map[string]string{},
 	}
+
+	builder.Init()
+
+	// values
+	builder.Set("values", values)
+
+	// tags and name
+	tagsMap := &expvar.Map{}
+	tagsMap.Init()
+	for k, v := range tags {
+		s := &expvar.String{}
+		s.Set(v)
+		tagsMap.Set(k, s)
+	}
+	builder.Set("tags", tagsMap)
 
 	return builder
 }

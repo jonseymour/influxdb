@@ -21,5 +21,5 @@ func NewStatistics(key, name string, tags map[string]string) *expvar.Map {
 		NewBuilder(key, clone).
 		MustBuild().
 		Open().
-		Map()
+		ValuesMap()
 }
