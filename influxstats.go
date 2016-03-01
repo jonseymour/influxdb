@@ -11,14 +11,8 @@ import (
 //
 // NewStatistics returns an expvar-based map with the given key.
 func NewStatistics(key, name string, tags map[string]string) *expvar.Map {
-	clone := make(map[string]string)
-	for k, e := range tags {
-		clone[k] = e
-	}
-	clone["name"] = name
-
 	return stats.Root.
-		NewBuilder(key, clone).
+		NewBuilder(key, name, tags).
 		MustBuild().
 		Open().
 		ValuesMap()
