@@ -30,7 +30,6 @@ import (
 	"github.com/influxdata/influxdb/services/snapshotter"
 	"github.com/influxdata/influxdb/services/subscriber"
 	"github.com/influxdata/influxdb/services/udp"
-	"github.com/influxdata/influxdb/stats"
 	"github.com/influxdata/influxdb/tcp"
 	"github.com/influxdata/influxdb/tsdb"
 	client "github.com/influxdata/usage-client/v1"
@@ -178,8 +177,6 @@ func NewServer(c *Config, buildInfo *BuildInfo) (*Server, error) {
 
 		config: c,
 	}
-
-	stats.Init(map[string]interface{}{})
 
 	if c.Meta.Enabled {
 		s.MetaService = meta.NewService(c.Meta)

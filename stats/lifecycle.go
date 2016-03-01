@@ -105,7 +105,8 @@ func (r *registry) register(g registration) {
 	// update the statistics map while holding the write lock
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.getStatistics().Set(g.Key(), g)
+
+	r.registrations[g.Key()] = g
 
 	return
 }
@@ -134,9 +135,9 @@ func (r *registry) onOpen(lf func(o registration)) func() {
 		}
 	}
 
-	r.do(func(s registration) {
-		existing = append(existing, s)
-	})
+	for _, g := range r.registrations {
+		existing = append(existing, g)
+	}
 
 	r.listeners = append(r.listeners, l)
 	r.mu.Unlock()
