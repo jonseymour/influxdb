@@ -25,6 +25,10 @@ func newBuilder(k string, n string, tags map[string]string, r registryClient) Bu
 
 	builder.Init()
 
+	s := &expvar.String{}
+	s.Set(n)
+	builder.Set("name", s)
+
 	// values
 	builder.Set("values", values)
 
