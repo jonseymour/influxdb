@@ -22,7 +22,7 @@ type testMonitor struct {
 	count int
 }
 
-func NewTestMonitor() *testMonitor {
+func newTestMonitor() *testMonitor {
 	monitor := &testMonitor{}
 	monitor.view = stats.Root.Open()
 	return monitor
@@ -45,7 +45,7 @@ func (m *testMonitor) Observe() stats.Collection {
 func TestSimulateMonitorBehaviour(t *testing.T) {
 	// check that a monitor of an idle registry sees nothing
 
-	monitor := NewTestMonitor()
+	monitor := newTestMonitor()
 	observed := monitor.Observe()
 	expected := stats.Collection{}
 	if !reflect.DeepEqual(observed, expected) {
@@ -53,7 +53,7 @@ func TestSimulateMonitorBehaviour(t *testing.T) {
 	}
 	monitor.Close()
 
-	monitor2 := NewTestMonitor()
+	monitor2 := newTestMonitor()
 	defer monitor2.Close()
 
 	// check that a monitor of an idle registry that is closed
