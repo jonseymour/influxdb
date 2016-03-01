@@ -9,7 +9,7 @@ import (
 
 func TestSetsAndAdds(t *testing.T) {
 	builder := stats.Root.
-		NewBuilder("k", map[string]string{"tags": "T"})
+		NewBuilder("k", "n", map[string]string{"tags": "T"})
 
 	for _, d := range []TestData{
 		TestData{method: "DeclareInt", name: "intv", value: int64(1), err: nil},

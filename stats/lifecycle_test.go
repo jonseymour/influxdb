@@ -9,7 +9,7 @@ import (
 
 func TestStatisticsFirst(t *testing.T) {
 	stat := stats.Root.
-		NewBuilder("key", map[string]string{"tag": "T"}).
+		NewBuilder("key", "n", map[string]string{"tag": "T"}).
 		MustBuild().
 		Open()
 	defer stat.Close()
@@ -27,7 +27,7 @@ func TestMonitorFirst(t *testing.T) {
 	defer view.Close()
 
 	stat := stats.Root.
-		NewBuilder("key", map[string]string{"tag": "T"}).
+		NewBuilder("key", "n", map[string]string{"tag": "T"}).
 		MustBuild().
 		Open()
 	defer stat.Close()

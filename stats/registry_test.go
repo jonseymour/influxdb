@@ -19,7 +19,7 @@ func TestEmptyStatistics(t *testing.T) {
 func TestOneStatistic(t *testing.T) {
 	go func() {
 		foo := stats.Root.
-			NewBuilder("foo", map[string]string{"tag": "T"}).
+			NewBuilder("foo", "m", map[string]string{"tag": "T"}).
 			MustBuild().
 			Open()
 		defer foo.Close()

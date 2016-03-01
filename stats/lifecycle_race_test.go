@@ -59,7 +59,7 @@ func TestLifeCycleRaces(t *testing.T) {
 
 			k := fmt.Sprintf("stat:%d", i)
 			aStats := stats.Root.
-				NewBuilder(k, map[string]string{"tag": "T"}).
+				NewBuilder(k, "n", map[string]string{"tag": "T"}).
 				DeclareInt("value", 0).
 				DeclareInt("index", 0).
 				MustBuild().

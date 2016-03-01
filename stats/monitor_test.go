@@ -60,7 +60,7 @@ func TestSimulateMonitorBehaviour(t *testing.T) {
 	// does not see anything, even if the registry subsequently becomes busy.
 
 	newStat := stats.Root.
-		NewBuilder("k", map[string]string{"tag": "T"}).
+		NewBuilder("k", "n", map[string]string{"tag": "T"}).
 		MustBuild().
 		Open()
 
