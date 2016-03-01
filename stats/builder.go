@@ -6,14 +6,14 @@ import (
 
 // Initializes a new Builder and associates with the specified registry.
 func newBuilder(k string, tags map[string]string, r registryClient) Builder {
-	impl := &expvar.Map{}
-	impl.Init()
+	values := &expvar.Map{}
+	values.Init()
 
 	builder := &statistics{
 		registry:   r,
 		key:        k,
 		tags:       tags,
-		impl:       impl,
+		values:     values,
 		refsCount:  0,
 		intVars:    map[string]*expvar.Int{},
 		stringVars: map[string]*expvar.String{},
@@ -52,7 +52,7 @@ func (s *statistics) DeclareInt(n string, iv int64) Builder {
 	s.assertNotDeclared(n)
 	v := &expvar.Int{}
 	v.Set(iv)
-	s.impl.Set(n, v)
+	s.values.Set(n, v)
 	s.intVars[n] = v
 	s.types[n] = "int"
 	return s
@@ -64,7 +64,7 @@ func (s *statistics) DeclareString(n string, iv string) Builder {
 	s.assertNotDeclared(n)
 	v := &expvar.String{}
 	v.Set(iv)
-	s.impl.Set(n, v)
+	s.values.Set(n, v)
 	s.stringVars[n] = v
 	s.types[n] = "string"
 	return s
@@ -76,7 +76,7 @@ func (s *statistics) DeclareFloat(n string, iv float64) Builder {
 	s.assertNotDeclared(n)
 	v := &expvar.Float{}
 	v.Set(iv)
-	s.impl.Set(n, v)
+	s.values.Set(n, v)
 	s.floatVars[n] = v
 	s.types[n] = "float"
 	return s
@@ -91,10 +91,10 @@ func (s *statistics) Build() (Built, error) {
 	s.built = true
 	tmp := &expvar.Map{}
 	tmp.Init()
-	s.impl.Do(func(kv expvar.KeyValue) {
+	s.values.Do(func(kv expvar.KeyValue) {
 		tmp.Set(kv.Key, kv.Value)
 	})
-	s.impl = tmp
+	s.values = tmp
 
 	return s, nil
 }

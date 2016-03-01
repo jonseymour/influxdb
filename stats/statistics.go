@@ -6,13 +6,13 @@ import (
 	"sync"
 )
 
-// The type which is used to implement both the Builder and Statistics interface
+// The type which is used to valuesement both the Builder and Statistics interface
 type statistics struct {
 	mu             sync.RWMutex
 	registry       registryClient
 	key            string
 	tags           map[string]string
-	impl           *expvar.Map
+	values         *expvar.Map
 	intVars        map[string]*expvar.Int
 	stringVars     map[string]*expvar.String
 	floatVars      map[string]*expvar.Float
@@ -31,7 +31,7 @@ func (s *statistics) Tags() map[string]string {
 }
 
 func (s *statistics) Map() *expvar.Map {
-	return s.impl
+	return s.values
 }
 
 func (s *statistics) Values() map[string]interface{} {
@@ -92,10 +92,10 @@ func (s *statistics) AddFloat(n string, f float64) Recorder {
 }
 
 func (s *statistics) String() string {
-	return s.impl.String()
+	return s.values.String()
 }
 
-// Consideration should be given to either commenting out the implementation
+// Consideration should be given to either commenting out the valuesementation
 // or the calls to this method. In well-tested code, it will never do
 // anything useful. The main reason for leaving it in is to document
 // the requirement that the Statistics methods should never be called
