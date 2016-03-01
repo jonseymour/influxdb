@@ -14,7 +14,6 @@ import (
 
 	"github.com/influxdata/influxdb"
 	"github.com/influxdata/influxdb/cluster"
-	"github.com/influxdata/influxdb/expvar"
 	"github.com/influxdata/influxdb/models"
 	"github.com/influxdata/influxdb/monitor"
 	"github.com/influxdata/influxdb/services/admin"
@@ -180,7 +179,7 @@ func NewServer(c *Config, buildInfo *BuildInfo) (*Server, error) {
 		config: c,
 	}
 
-	stats.Init(map[string]interface{}{"container": expvar.Get()})
+	stats.Init(map[string]interface{}{})
 
 	if c.Meta.Enabled {
 		s.MetaService = meta.NewService(c.Meta)
