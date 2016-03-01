@@ -147,7 +147,7 @@ func (m *Monitor) Statistics(tags map[string]string) ([]*Statistic, error) {
 	m.statsView.Do(func(s stats.Statistics) {
 
 		statistic := &Statistic{
-			Name:   s.Tags()["name"],
+			Name:   s.Name(),
 			Tags:   make(map[string]string),
 			Values: s.Values(),
 		}
@@ -158,9 +158,7 @@ func (m *Monitor) Statistics(tags map[string]string) ([]*Statistic, error) {
 		}
 
 		for k, v := range s.Tags() {
-			if k != "name" {
-				statistic.Tags[k] = v
-			}
+			statistic.Tags[k] = v
 		}
 
 		// If a registered client has no field data, don't include it in the results
