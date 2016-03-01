@@ -99,7 +99,7 @@ func NewWAL(path string) *WAL {
 		logger:      log.New(os.Stderr, "[tsm1wal] ", log.LstdFlags),
 		closing:     make(chan struct{}),
 		stats: stats.Root.
-			NewBuilder("tsm1_wal:"+path, map[string]string{"name": "tsm1_wal", "path": path, "database": db, "retentionPolicy": rp}).
+			NewBuilder("tsm1_wal:"+path, "tsm1_wal", map[string]string{"path": path, "database": db, "retentionPolicy": rp}).
 			DeclareInt(statWALCurrentBytes, 0).
 			DeclareInt(statWALOldBytes, 0).
 			MustBuild().

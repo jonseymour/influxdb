@@ -74,7 +74,6 @@ func NewShard(id uint64, index *DatabaseIndex, path string, walPath string, opti
 	key := fmt.Sprintf("shard:%s:%d", path, id)
 	db, rp := DecodeStorePath(path)
 	tags := map[string]string{
-		"name":            "shard",
 		"path":            path,
 		"id":              fmt.Sprintf("%d", id),
 		"engine":          options.EngineVersion,
@@ -94,7 +93,7 @@ func NewShard(id uint64, index *DatabaseIndex, path string, walPath string, opti
 		retentionPolicy: rp,
 
 		stats: stats.Root.
-			NewBuilder(key, tags).
+			NewBuilder(key, "shard", tags).
 			DeclareInt(statWritePointsFail, 0).
 			DeclareInt(statFieldsCreate, 0).
 			DeclareInt(statSeriesCreate, 0).

@@ -130,7 +130,7 @@ func NewFileStore(dir string) *FileStore {
 		lastModified: time.Now(),
 		Logger:       log.New(os.Stderr, "[filestore] ", log.LstdFlags),
 		stats: stats.Root.
-			NewBuilder("tsm1_filestore:"+dir, map[string]string{"name": "tsm1_filestore", "path": dir, "database": db, "retentionPolicy": rp}).
+			NewBuilder("tsm1_filestore:"+dir, "tsm1_filestore", map[string]string{"path": dir, "database": db, "retentionPolicy": rp}).
 			DeclareInt(statFileStoreBytes, 0).
 			MustBuild().
 			Open(),
