@@ -41,9 +41,15 @@ func (r *registry) clean() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	toclean := []string{}
+
 	for k, g := range r.registrations {
 		if g.refs() == 0 {
-			delete(r.registrations, k)
+			toclean = append(toclean, k)
 		}
+	}
+
+	for _, k := range toclean {
+		delete(r.registrations, k)
 	}
 }
