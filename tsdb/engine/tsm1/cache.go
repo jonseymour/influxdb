@@ -131,19 +131,21 @@ func NewCache(maxSize uint64, path string) *Cache {
 // It returns an error if the cache has exceeded its max size.
 func (c *Cache) Write(key string, values []Value) error {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	// Enough room in the cache?
-	newSize := c.size + uint64(Values(values).Size())
+	addedSize := Values(values).Size()
+	newSize := c.size + uint64(addedSize)
 	if c.maxSize > 0 && newSize+c.snapshotSize > c.maxSize {
+		c.mu.Unlock()
 		return ErrCacheMemoryExceeded
 	}
 
 	c.write(key, values)
 	c.size = newSize
+	c.mu.Unlock()
 
 	// Update the memory size stat
-	c.updateMemSize(newSize)
+	c.updateMemSize(int64(addedSize))
 
 	return nil
 }
@@ -173,7 +175,7 @@ func (c *Cache) WriteMulti(values map[string][]Value) error {
 	c.mu.Unlock()
 
 	// Update the memory size stat
-	c.updateMemSize(newSize)
+	c.updateMemSize(int64(totalSz))
 
 	return nil
 }
@@ -465,10 +467,8 @@ func (c *Cache) updateCachedBytes(b uint64) {
 }
 
 // Update the memSize level
-func (c *Cache) updateMemSize(b uint64) {
-	memSizeStat := new(expvar.Int)
-	memSizeStat.Set(int64(b))
-	c.statMap.Set(statCacheMemoryBytes, memSizeStat)
+func (c *Cache) updateMemSize(b int64) {
+	c.statMap.Add(statCacheMemoryBytes, b)
 }
 
 // Update the snapshotsCount and the diskSize levels
