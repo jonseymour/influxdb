@@ -103,6 +103,9 @@ type Cache struct {
 	snapshot     *Cache
 	snapshotSize uint64
 
+	// This number is the number of pending or failed WriteSnaphot attempts since the last successful one.
+	snapshotAttempts int
+
 	statMap      *expvar.Map // nil for snapshots.
 	lastSnapshot time.Time
 }
@@ -120,7 +123,7 @@ func NewCache(maxSize uint64, path string) *Cache {
 	c.UpdateCompactTime(0)
 	c.updateCachedBytes(0)
 	c.updateMemSize(0)
-	c.updateSnapshot()
+	c.updateSnapshots()
 	return c
 }
 
@@ -185,6 +188,8 @@ func (c *Cache) Snapshot() *Cache {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	c.snapshotAttempts++ // increment the number of times we tried to do this
+
 	// If no snapshot exists, create a new one, otherwise update the existing snapshot
 	if c.snapshot == nil {
 		c.snapshot = &Cache{
@@ -214,7 +219,7 @@ func (c *Cache) Snapshot() *Cache {
 
 	c.updateMemSize(-int64(c.snapshot.Size()))
 	c.updateCachedBytes(c.snapshot.Size())
-	c.updateSnapshot()
+	c.updateSnapshots()
 
 	return c.snapshot
 }
@@ -232,10 +237,16 @@ func (c *Cache) Deduplicate() {
 func (c *Cache) ClearSnapshot(success bool) {
 	defer c.commit.Unlock()
 
-	c.snapshotSize = 0
-	c.snapshot = nil
+	if success {
+		c.mu.Lock()
+		defer c.mu.Unlock()
 
-	c.updateSnapshot()
+		c.snapshotAttempts = 0
+		c.snapshotSize = 0
+		c.snapshot = nil
+
+		c.updateSnapshots()
+	}
 }
 
 // Size returns the number of point-calcuated bytes the cache currently uses.
@@ -469,13 +480,13 @@ func (c *Cache) updateMemSize(b int64) {
 }
 
 // Update the snapshotsCount and the diskSize levels
-func (c *Cache) updateSnapshot() {
+func (c *Cache) updateSnapshots() {
 	// Update disk stats
 	diskSizeStat := new(expvar.Int)
 	diskSizeStat.Set(int64(c.snapshotSize))
 	c.statMap.Set(statCacheDiskBytes, diskSizeStat)
 
 	snapshotsStat := new(expvar.Int)
-	snapshotsStat.Set(int64(1))
+	snapshotsStat.Set(int64(c.snapshotAttempts))
 	c.statMap.Set(statSnapshots, snapshotsStat)
 }
