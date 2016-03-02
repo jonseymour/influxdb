@@ -112,13 +112,19 @@ type Cache struct {
 
 // NewCache returns an instance of a cache which will use a maximum of maxSize bytes of memory.
 func NewCache(maxSize uint64, path string) *Cache {
-	return &Cache{
+	c := &Cache{
 		maxSize:      maxSize,
 		store:        make(map[string]*entry),
 		statMap:      influxdb.NewStatistics("tsm1_cache:"+path, "tsm1_cache", map[string]string{"path": path}),
 		path:         path,
 		lastSnapshot: time.Now(),
 	}
+	c.UpdateAge()
+	c.UpdateCompactTime(0)
+	c.updateCachedBytes(0)
+	c.updateMemSize(0)
+	c.updateSnapshot()
+	return c
 }
 
 // Write writes the set of values for the key to the cache. This function is goroutine-safe.
@@ -137,9 +143,7 @@ func (c *Cache) Write(key string, values []Value) error {
 	c.size = newSize
 
 	// Update the memory size stat
-	sizeStat := new(expvar.Int)
-	sizeStat.Set(int64(c.size))
-	c.statMap.Set(statCacheMemoryBytes, sizeStat)
+	c.updateMemSize(newSize)
 
 	return nil
 }
@@ -169,9 +173,7 @@ func (c *Cache) WriteMulti(values map[string][]Value) error {
 	c.mu.Unlock()
 
 	// Update the memory size stat
-	sizeStat := new(expvar.Int)
-	sizeStat.Set(int64(newSize))
-	c.statMap.Set(statCacheMemoryBytes, sizeStat)
+	c.updateMemSize(newSize)
 
 	return nil
 }
@@ -455,4 +457,28 @@ func (c *Cache) UpdateAge() {
 // Updates WAL compaction time statistic
 func (c *Cache) UpdateCompactTime(d time.Duration) {
 	c.statMap.Add(statWALCompactionTimeMs, int64(d/time.Millisecond))
+}
+
+// Update the cachedBytes counter
+func (c *Cache) updateCachedBytes(b uint64) {
+	c.statMap.Add(statCachedBytes, int64(b))
+}
+
+// Update the memSize level
+func (c *Cache) updateMemSize(b uint64) {
+	memSizeStat := new(expvar.Int)
+	memSizeStat.Set(int64(b))
+	c.statMap.Set(statCacheMemoryBytes, memSizeStat)
+}
+
+// Update the snapshotsCount and the diskSize levels
+func (c *Cache) updateSnapshot() {
+	// Update disk stats
+	diskSizeStat := new(expvar.Int)
+	diskSizeStat.Set(int64(c.snapshotSize))
+	c.statMap.Set(statCacheDiskBytes, diskSizeStat)
+
+	snapshotsStat := new(expvar.Int)
+	snapshotsStat.Set(int64(1))
+	c.statMap.Set(statSnapshots, snapshotsStat)
 }
