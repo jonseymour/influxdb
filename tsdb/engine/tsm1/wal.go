@@ -86,7 +86,7 @@ type WAL struct {
 }
 
 func NewWAL(path string) *WAL {
-	return &WAL{
+	wal := &WAL{
 		path: path,
 
 		// these options should be overriden by any options in the config
@@ -94,12 +94,19 @@ func NewWAL(path string) *WAL {
 		SegmentSize: DefaultSegmentSize,
 		logger:      log.New(os.Stderr, "[tsm1wal] ", log.LstdFlags),
 		closing:     make(chan struct{}),
-		stats: stats.Root.
-			NewBuilder("tsm1_wal:"+path, "tsm1_wal", map[string]string{"path": path}).
+	}
+	wal.ensureStats()
+	return wal
+}
+
+func (l *WAL) ensureStats() {
+	if l.stats == nil {
+		l.stats = stats.Root.
+			NewBuilder("tsm1_wal:"+l.path, "tsm1_wal", map[string]string{"path": l.path}).
 			DeclareInt(statWALCurrentBytes, 0).
 			DeclareInt(statWALOldBytes, 0).
 			MustBuild().
-			Open(),
+			Open()
 	}
 }
 
@@ -122,6 +129,8 @@ func (l *WAL) Open() error {
 	if err := os.MkdirAll(l.path, 0777); err != nil {
 		return err
 	}
+
+	l.ensureStats()
 
 	segments, err := segmentFileNames(l.path)
 	if err != nil {
@@ -349,6 +358,7 @@ func (l *WAL) Close() error {
 	}
 
 	l.stats.Close()
+	l.stats = nil
 
 	return nil
 }

@@ -107,6 +107,7 @@ type Cache struct {
 
 	stats        stats.Recorder
 	lastSnapshot time.Time
+	path         string
 }
 
 // NewCache returns an instance of a cache which will use a maximum of maxSize bytes of memory.
@@ -116,7 +117,15 @@ func NewCache(maxSize uint64, path string) *Cache {
 		maxSize:      maxSize,
 		store:        make(map[string]*entry),
 		lastSnapshot: time.Now(),
-		stats: stats.Root.NewBuilder("tsm1_cache:"+path, "tsm1_cache", map[string]string{"path": path}).
+		path:         path,
+	}
+	c.ensureStats()
+	return c
+}
+
+func (c *Cache) ensureStats() {
+	if c.stats == nil {
+		c.stats = stats.Root.NewBuilder("tsm1_cache:"+c.path, "tsm1_cache", map[string]string{"path": c.path}).
 			DeclareInt(statCacheAgeMs, 0).
 			DeclareInt(statCachedBytes, 0).
 			DeclareInt(statSnapshots, 0).
@@ -124,9 +133,12 @@ func NewCache(maxSize uint64, path string) *Cache {
 			DeclareInt(statCacheMemoryBytes, 0).
 			DeclareInt(statWALCompactionTimeMs, 0).
 			MustBuild().
-			Open(),
+			Open()
 	}
-	return c
+}
+
+func (c *Cache) Open() {
+	c.ensureStats()
 }
 
 // Write writes the set of values for the key to the cache. This function is goroutine-safe.
@@ -482,4 +494,5 @@ func (c *Cache) updateSnapshots() {
 // Ensure that we stop logging these statistics at some point in the future
 func (c *Cache) Close() {
 	c.stats.Close()
+	c.stats = nil
 }

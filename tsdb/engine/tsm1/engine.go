@@ -127,6 +127,8 @@ func (e *Engine) Open() error {
 		return err
 	}
 
+	e.Cache.Open()
+
 	if err := e.reloadCache(); err != nil {
 		return err
 	}

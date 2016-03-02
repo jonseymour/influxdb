@@ -124,11 +124,16 @@ func NewFileStore(dir string) *FileStore {
 		dir:          dir,
 		lastModified: time.Now(),
 		Logger:       log.New(os.Stderr, "[filestore] ", log.LstdFlags),
-		stats: stats.Root.
-			NewBuilder("tsm1_filestore:"+dir, "tsm1_filestore", map[string]string{"path": dir}).
+	}
+}
+
+func (f *FileStore) ensureStats() {
+	if f.stats == nil {
+		f.stats = stats.Root.
+			NewBuilder("tsm1_filestore:"+f.dir, "tsm1_filestore", map[string]string{"path": f.dir}).
 			DeclareInt(statFileStoreBytes, 0).
 			MustBuild().
-			Open(),
+			Open()
 	}
 }
 
@@ -157,6 +162,7 @@ func (f *FileStore) NextGeneration() int {
 func (f *FileStore) Add(files ...TSMFile) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.ensureStats()
 	for _, file := range files {
 		f.stats.AddInt(statFileStoreBytes, int64(file.Size()))
 	}
@@ -249,6 +255,8 @@ func (f *FileStore) Open() error {
 		return err
 	}
 
+	f.ensureStats()
+
 	// struct to hold the result of opening each reader in a goroutine
 	type res struct {
 		r   *TSMReader
@@ -317,7 +325,7 @@ func (f *FileStore) Close() error {
 	}
 
 	f.stats.Close()
-
+	f.stats = nil
 	f.files = nil
 	return nil
 }
