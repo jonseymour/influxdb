@@ -169,6 +169,9 @@ func (s *Shard) Close() error {
 func (s *Shard) close() error {
 	defer s.stats.Close()
 	if s.engine != nil {
+		defer func() {
+			s.engine = nil
+		}()
 		return s.engine.Close()
 	}
 	return nil
