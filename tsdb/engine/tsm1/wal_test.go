@@ -466,6 +466,23 @@ func TestWALWriter_Corrupt(t *testing.T) {
 	}
 }
 
+func TestWAL_Reopen(t *testing.T) {
+	dir := MustTempDir()
+	defer os.RemoveAll(dir)
+	wal := tsm1.NewWAL(dir)
+
+	cycle := func() {
+		if err := wal.Open(); err != nil {
+			t.Fatalf("failed to open WAL. got: %v, expecting: %v", err, nil)
+		}
+		if err := wal.Close(); err != nil {
+			t.Fatalf("failed to close WAL. got: %v, expecting: %v", err, nil)
+		}
+	}
+	cycle()
+	cycle()
+}
+
 func BenchmarkWALSegmentWriter(b *testing.B) {
 	points := map[string][]tsm1.Value{}
 	for i := 0; i < 5000; i++ {
