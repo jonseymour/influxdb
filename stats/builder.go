@@ -6,7 +6,6 @@ import (
 
 // Initializes a new Builder and associates with the specified registry.
 func newBuilder(k string, n string, tags map[string]string, r registryClient) Builder {
-
 	values := &expvar.Map{}
 	values.Init()
 

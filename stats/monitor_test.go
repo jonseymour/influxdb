@@ -44,7 +44,6 @@ func (m *testMonitor) Observe() stats.Collection {
 
 func TestSimulateMonitorBehaviour(t *testing.T) {
 	// check that a monitor of an idle registry sees nothing
-
 	monitor := newTestMonitor()
 	observed := monitor.Observe()
 	expected := stats.Collection{}
@@ -86,5 +85,4 @@ func TestSimulateMonitorBehaviour(t *testing.T) {
 	if !reflect.DeepEqual(observed, expected) {
 		t.Fatalf("open monitor should see recently closed stat on first observation but not second. got: %v, expected: %v", observed, expected)
 	}
-
 }

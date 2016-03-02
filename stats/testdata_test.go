@@ -14,6 +14,7 @@ type TestData struct {
 	err    error
 }
 
+// dontPanic if there is a panic, instead return the error
 func dontPanic(f func()) (result error) {
 
 	defer func() {
@@ -27,6 +28,7 @@ func dontPanic(f func()) (result error) {
 	return nil
 }
 
+// applyToBuilder applies the receiver's data to the specified Builder
 func (d *TestData) applyToBuilder(t *testing.T, b stats.Builder) {
 	result := dontPanic(func() {
 
@@ -46,6 +48,7 @@ func (d *TestData) applyToBuilder(t *testing.T, b stats.Builder) {
 	}
 }
 
+// applyToBuilder applies the receiver's data to the specified Statistics object
 func (d *TestData) applyToStatistics(t *testing.T, s stats.Recorder) {
 	result := dontPanic(func() {
 

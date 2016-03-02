@@ -11,7 +11,6 @@ import (
 
 // Tests that there are no deadlocks or races under typical usage scenarios
 func TestLifeCycleRaces(t *testing.T) {
-
 	errors := make(chan error)
 	go func() {
 		defer func() {

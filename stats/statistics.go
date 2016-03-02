@@ -1,12 +1,16 @@
 package stats
 
 import (
+	"errors"
 	"expvar"
 	"strconv"
 	"sync"
 )
 
-// The type which is used to valuesement both the Builder and Statistics interface
+// errUnexpectedRefCount is the panic used if there is an expected reference counting violation
+var errUnexpectedRefCount = errors.New("unexpected reference counting error")
+
+// The type which is used to implement both the Builder and Statistics interface
 type statistics struct {
 	expvar.Map
 	mu             sync.RWMutex
@@ -97,7 +101,7 @@ func (s *statistics) AddFloat(n string, f float64) Recorder {
 	return s
 }
 
-// Consideration should be given to either commenting out the valuesementation
+// Consideration should be given to either commenting out the implementation
 // or the calls to this method. In well-tested code, it will never do
 // anything useful. The main reason for leaving it in is to document
 // the requirement that the Statistics methods should never be called
@@ -118,4 +122,84 @@ func (s *statistics) assertDeclaredAs(n string, t string) {
 			panic(ErrStatDeclaredWithDifferentType)
 		}
 	}
+}
+
+// Open the Recorder and register it with the registryClient
+func (s *statistics) Open() Recorder {
+	s.open(true)
+	return s
+}
+
+// Close the Recorder.
+func (s *statistics) Close() {
+	s.close(true)
+}
+
+// Increment the reference count,
+// set the isOpen() status and conditionally notify the
+// registry of the new Recorder
+func (s *statistics) open(owner bool) {
+	s.mu.Lock()
+	if owner {
+		if s.isRecorderOpen {
+			s.mu.Unlock()
+			panic(ErrAlreadyOpen)
+		}
+		s.isRecorderOpen = true
+	}
+	s.refsCount++
+	s.mu.Unlock()
+
+	// Perform this notification outside of a lock.
+	// Inside of a lock, there is no room to move.
+	//
+	// With apologies to Groucho Marx.
+	if owner {
+		s.registry.register(s)
+	}
+}
+
+// Decrement the reference count and conditionally
+// clear the isOpen().
+func (s *statistics) close(owner bool) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.refsCount == 0 {
+		panic(errUnexpectedRefCount)
+	}
+
+	if owner {
+		if !s.isRecorderOpen {
+			panic(ErrAlreadyClosed)
+		}
+		s.isRecorderOpen = false
+	}
+	s.refsCount--
+	return s.refsCount
+}
+
+// True if the Recorder interface is still open.
+func (s *statistics) isOpen() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.isRecorderOpen
+}
+
+// Return true if there is less than 2 references to the receiver
+func (s *statistics) refs() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.refsCount
+}
+
+// Register an observer.
+func (s *statistics) observe() {
+	s.open(false)
+}
+
+// Deregister an observer.
+func (s *statistics) stopObserving() int {
+	return s.close(false)
 }

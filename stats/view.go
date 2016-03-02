@@ -4,6 +4,9 @@ import (
 	"sync"
 )
 
+// A view represents a stable view of registrations. Registrations that are closed
+// between two calls to the view's Do method do not disappear from the view
+// until after the second call is complete.
 type view struct {
 	mu            sync.RWMutex
 	registry      registryClient
@@ -11,6 +14,7 @@ type view struct {
 	closer        func()
 }
 
+// newView creates a new view and registers an observer with the registry.
 func newView(r registryClient) View {
 	v := &view{
 		registry:      r,
@@ -20,6 +24,8 @@ func newView(r registryClient) View {
 	return v
 }
 
+// Close release references to all registrations in the view, then pings the registry
+// to give it a chance to clean itself.
 func (v *view) Close() {
 	tmp := v.registrations
 	v.closer()
@@ -72,7 +78,7 @@ func (v *view) Do(f func(s Statistics)) View {
 	}
 	v.mu.Unlock()
 
-	// remove the references to the closed refegistrations
+	// remove the references to the closed registrations
 	count := 0
 	for _, g := range forgotten {
 		if g.stopObserving() == 0 {
@@ -87,6 +93,9 @@ func (v *view) Do(f func(s Statistics)) View {
 	return v
 }
 
+// onOpen is called once for every registration in the registry at the time the view
+// is opened and once for each registration created after that time until the view
+// is closed.
 func (v *view) onOpen(g registration) {
 	g.observe() // outside of a lock
 
