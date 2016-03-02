@@ -1,19 +1,24 @@
 // Package stats defines a statistics acquisition and monitoring API
 // which uses the go 'expvar' API as the underlying representation mechanism.
 //
-// There are several advantages of using this API to manage the expvar namespace
-// over the raw expvar API. The main one is that 'stats' trivially allows Statistics to
-// be removed from the expvar namespace in a way that allows viewers of the namespace
-// to see the final update to a Statistics object immediately prior to the removal of the Statistics
-// object from the namespace. This is achieved by use of the View type which encapsulates
-// a reference counting mechanism which ensures a Statistics object does not disappear from a
-// View until the View has seen the last state of the object prior to it being
-// closed by the owner of its Recorder.
+// The main difference between this API and the raw expvar API are the following:
 //
-// The ability to easily remove maps from the 'expvar' namespace is important in long-lived
-// processes that create large number of short-lived variables in the 'expvar' namespace - unless
-// some cleanup mechanism such as the one provided by this package is used resources
-// of various kind (memory, CPU or IO) might be exhausted.
+// - this API does not leak memory if an unbounded number of short-lived Statistics objects are
+//   created. Naive use of the expvar Map API for the same purpose is not well-suited
+//   to this task because that API does not have a Delete method. There are ways to
+//   workaround the issue, but they are somewhat complex and kludgy.
+// - since Recorder Add/Set methods write directly into pre-allocated expvar Vars referenced
+//   by go maps that never change, minimal locking is required in the recording path.
+// - the Statistics objects created by this API are not directly reachable with a walk of the
+//   expvar tree. Instead, a 'walk' function is provided which permits iteration over
+//   the current set of statistics.
+//
+// In addition a View mechanism permits a background thread that is periodically polling
+// the Registry of Statistics to see the last update made to a set of Statistics since
+// the last polling cycle, even if the recording thread has closed the associated
+// Recorder in the intervening time. This is achieved with a reference counting mechanism
+// which ensures that a Statistics objects is not removed from the View until
+// the consumer of the View has "seen" the Close event.
 //
 // The Recorder interface is a facade that manages the construction of expvar Map objects and
 // their members - once the Recorder is initialised, the programmer has a single interface to
