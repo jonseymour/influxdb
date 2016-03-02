@@ -133,6 +133,8 @@ func (e *Engine) Open() error {
 	e.done = make(chan struct{})
 	e.Compactor.Cancel = e.done
 
+	e.Cache.Open()
+
 	if err := os.MkdirAll(e.path, 0777); err != nil {
 		return err
 	}
@@ -180,6 +182,8 @@ func (e *Engine) Close() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.done = nil // Ensures that the channel will not be closed again.
+
+	defer e.Cache.Close()
 
 	if err := e.FileStore.Close(); err != nil {
 		return err
