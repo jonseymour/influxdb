@@ -78,6 +78,7 @@ package stats
 import (
 	"errors"
 	"expvar"
+	"time"
 )
 
 // Builder is an interface used by described objects to declare the statistics
@@ -103,7 +104,10 @@ type Builder interface {
 	DeclareString(n string, iv string) Builder
 	// Declare an float statistic
 	DeclareFloat(n string, iv float64) Builder
-
+	// DisbleIdleTimer disables the idle timer for these statistics
+	DisableIdleTimer() Builder
+	// Don't update the busy counter even if this stat changes.
+	DontUpdateBusyCount(n string) Builder
 	// Build a Recorder instance or return an error.
 	Build() (Recorder, error)
 	// Build a Recorder instance or panic.
@@ -131,6 +135,9 @@ type Statistics interface {
 
 	// The underlying values map - do not use directly, provided for legacy expvar support only.
 	ValuesMap() *expvar.Map
+
+	// Update the idle time of the Statistics object, returning the idle duration.
+	UpdateIdleTime() time.Duration
 }
 
 // The Recorder type is used by described objects to update statistics either by

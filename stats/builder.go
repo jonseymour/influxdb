@@ -10,16 +10,17 @@ func newBuilder(k string, n string, tags map[string]string, r registryClient) Bu
 	values.Init()
 
 	builder := &statistics{
-		registry:   r,
-		key:        k,
-		name:       n,
-		tags:       tags,
-		values:     values,
-		refsCount:  0,
-		intVars:    map[string]*expvar.Int{},
-		stringVars: map[string]*expvar.String{},
-		floatVars:  map[string]*expvar.Float{},
-		types:      map[string]string{},
+		registry:     r,
+		key:          k,
+		name:         n,
+		tags:         tags,
+		values:       values,
+		refsCount:    0,
+		intVars:      map[string]*expvar.Int{},
+		stringVars:   map[string]*expvar.String{},
+		floatVars:    map[string]*expvar.Float{},
+		types:        map[string]string{},
+		busyCounters: map[string]*int64{},
 	}
 
 	builder.Init()
@@ -75,6 +76,7 @@ func (s *statistics) DeclareInt(n string, iv int64) Builder {
 	s.values.Set(n, v)
 	s.intVars[n] = v
 	s.types[n] = "int"
+	s.busyCounters[n] = &s.busyCount
 	return s
 }
 
@@ -87,6 +89,7 @@ func (s *statistics) DeclareString(n string, iv string) Builder {
 	s.values.Set(n, v)
 	s.stringVars[n] = v
 	s.types[n] = "string"
+	s.busyCounters[n] = &s.busyCount
 	return s
 }
 
@@ -99,6 +102,17 @@ func (s *statistics) DeclareFloat(n string, iv float64) Builder {
 	s.values.Set(n, v)
 	s.floatVars[n] = v
 	s.types[n] = "float"
+	s.busyCounters[n] = &s.busyCount
+	return s
+}
+
+func (s *statistics) DisableIdleTimer() Builder {
+	s.disableIdleTimer = true
+	return s
+}
+
+func (s *statistics) DontUpdateBusyCount(n string) Builder {
+	s.busyCounters[n] = &s.notBusyCount
 	return s
 }
 

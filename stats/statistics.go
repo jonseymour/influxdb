@@ -5,6 +5,8 @@ import (
 	"expvar"
 	"strconv"
 	"sync"
+	"sync/atomic"
+	"time"
 )
 
 // errUnexpectedRefCount is the panic used if there is an expected reference counting violation
@@ -13,19 +15,24 @@ var errUnexpectedRefCount = errors.New("unexpected reference counting error")
 // The type which is used to implement both the Builder and Statistics interface
 type statistics struct {
 	expvar.Map
-	mu             sync.RWMutex
-	registry       registryClient
-	key            string
-	name           string
-	tags           map[string]string
-	values         *expvar.Map
-	intVars        map[string]*expvar.Int
-	stringVars     map[string]*expvar.String
-	floatVars      map[string]*expvar.Float
-	types          map[string]string
-	built          bool
-	isRecorderOpen bool
-	refsCount      int
+	mu               sync.RWMutex
+	registry         registryClient
+	key              string
+	name             string
+	tags             map[string]string
+	values           *expvar.Map
+	intVars          map[string]*expvar.Int
+	stringVars       map[string]*expvar.String
+	floatVars        map[string]*expvar.Float
+	types            map[string]string
+	busyCounters     map[string]*int64
+	built            bool
+	isRecorderOpen   bool
+	refsCount        int
+	busyCount        int64
+	notBusyCount     int64
+	idleSince        int64
+	disableIdleTimer bool
 }
 
 func (s *statistics) Key() string {
@@ -75,29 +82,34 @@ func (s *statistics) Values() map[string]interface{} {
 func (s *statistics) SetInt(n string, i int64) Recorder {
 	s.assertDeclaredAs(n, "int")
 	s.intVars[n].Set(i)
+	atomic.AddInt64(s.busyCounters[n], 1)
 	return s
 }
 func (s *statistics) SetFloat(n string, f float64) Recorder {
 	s.assertDeclaredAs(n, "float")
 	s.floatVars[n].Set(f)
+	atomic.AddInt64(s.busyCounters[n], 1)
 	return s
 }
 
 func (s *statistics) SetString(n string, v string) Recorder {
 	s.assertDeclaredAs(n, "string")
 	s.stringVars[n].Set(v)
+	atomic.AddInt64(s.busyCounters[n], 1)
 	return s
 }
 
 func (s *statistics) AddInt(n string, i int64) Recorder {
 	s.assertDeclaredAs(n, "int")
 	s.intVars[n].Add(i)
+	atomic.AddInt64(s.busyCounters[n], 1)
 	return s
 }
 
 func (s *statistics) AddFloat(n string, f float64) Recorder {
 	s.assertDeclaredAs(n, "float")
 	s.floatVars[n].Add(f)
+	atomic.AddInt64(s.busyCounters[n], 1)
 	return s
 }
 
@@ -202,4 +214,26 @@ func (s *statistics) observe() {
 // Deregister an observer.
 func (s *statistics) stopObserving() int {
 	return s.close(false)
+}
+
+// Update the idle time of the statistics
+func (s *statistics) UpdateIdleTime() time.Duration {
+	if s.disableIdleTimer {
+		return time.Duration(0)
+	}
+
+	count := atomic.LoadInt64(&s.busyCount)
+	atomic.StoreInt64(&s.busyCount, 0)
+
+	now := time.Now().UnixNano()
+
+	if count > 0 {
+		atomic.StoreInt64(&s.idleSince, 0)
+		return time.Duration(0)
+	} else if then := atomic.LoadInt64(&s.idleSince); then == 0 {
+		atomic.StoreInt64(&s.idleSince, now)
+		return time.Duration(0)
+	} else {
+		return time.Duration(now - then)
+	}
 }
