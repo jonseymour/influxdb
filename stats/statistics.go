@@ -60,19 +60,13 @@ func (s *statistics) Values() map[string]interface{} {
 		switch v := kv.Value.(type) {
 		case *expvar.Float:
 			f, err = strconv.ParseFloat(v.String(), 64)
-			if err != nil {
-				return
-			}
 		case *expvar.Int:
 			f, err = strconv.ParseInt(v.String(), 10, 64)
-			if err != nil {
-				return
-			}
 		default:
 			f, err = strconv.Unquote(v.String())
-			if err != nil {
-				return
-			}
+		}
+		if err != nil {
+			return
 		}
 		values[kv.Key] = f
 	})
