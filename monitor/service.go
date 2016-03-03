@@ -49,6 +49,8 @@ type Monitor struct {
 	storeAddress           string
 	storeInterval          time.Duration
 
+	idleTime time.Duration
+
 	MetaClient interface {
 		ClusterID() uint64
 		CreateDatabase(name string) (*meta.DatabaseInfo, error)
@@ -78,6 +80,7 @@ func New(c Config) *Monitor {
 		storeDatabase:        c.StoreDatabase,
 		storeInterval:        time.Duration(c.StoreInterval),
 		storeRetentionPolicy: MonitorRetentionPolicy,
+		idleTime:             time.Duration(c.IdleTime),
 		Logger:               log.New(os.Stderr, "[monitor] ", log.LstdFlags),
 	}
 }
@@ -146,6 +149,10 @@ func (m *Monitor) Statistics(tags map[string]string) ([]*Statistic, error) {
 	var statistics []*Statistic
 
 	m.statsView.Do(func(s stats.Statistics) {
+		// Stop logging idle statistics
+		if s.UpdateIdleTime() > m.idleTime {
+			return
+		}
 
 		statistic := &Statistic{
 			Name:   s.Name(),

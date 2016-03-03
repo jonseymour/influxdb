@@ -14,6 +14,7 @@ import (
 func NewStatistics(key, name string, tags map[string]string) *expvar.Map {
 	return stats.Root.
 		NewBuilder(key, name, tags).
+		DisableIdleTimer().
 		MustBuild().
 		Open().
 		ValuesMap()
