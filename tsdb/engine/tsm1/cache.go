@@ -120,6 +120,7 @@ func NewCache(maxSize uint64, path string) *Cache {
 		lastSnapshot: time.Now(),
 		stats: stats.Root.NewBuilder("tsm1_cache:"+path, "tsm1_cache", map[string]string{"path": path, "database": db, "retentionPolicy": rp}).
 			DeclareInt(statCacheAgeMs, 0).
+			DontUpdateBusyCount(statCacheAgeMs).
 			DeclareInt(statCachedBytes, 0).
 			DeclareInt(statSnapshots, 0).
 			DeclareInt(statCacheDiskBytes, 0).
