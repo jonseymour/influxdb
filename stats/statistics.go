@@ -25,12 +25,12 @@ type statistics struct {
 	stringVars       map[string]*expvar.String
 	floatVars        map[string]*expvar.Float
 	types            map[string]string
-	busyCounters     map[string]*int64
+	busyCounters     map[string]*int32
 	built            bool
 	isRecorderOpen   bool
 	refsCount        int
-	busyCount        int64
-	notBusyCount     int64
+	busyCount        int32
+	notBusyCount     int32
 	idleSince        int64
 	disableIdleTimer bool
 }
@@ -76,34 +76,34 @@ func (s *statistics) Values() map[string]interface{} {
 func (s *statistics) SetInt(n string, i int64) Recorder {
 	s.assertDeclaredAs(n, "int")
 	s.intVars[n].Set(i)
-	atomic.AddInt64(s.busyCounters[n], 1)
+	atomic.AddInt32(s.busyCounters[n], 1)
 	return s
 }
 func (s *statistics) SetFloat(n string, f float64) Recorder {
 	s.assertDeclaredAs(n, "float")
 	s.floatVars[n].Set(f)
-	atomic.AddInt64(s.busyCounters[n], 1)
+	atomic.AddInt32(s.busyCounters[n], 1)
 	return s
 }
 
 func (s *statistics) SetString(n string, v string) Recorder {
 	s.assertDeclaredAs(n, "string")
 	s.stringVars[n].Set(v)
-	atomic.AddInt64(s.busyCounters[n], 1)
+	atomic.AddInt32(s.busyCounters[n], 1)
 	return s
 }
 
 func (s *statistics) AddInt(n string, i int64) Recorder {
 	s.assertDeclaredAs(n, "int")
 	s.intVars[n].Add(i)
-	atomic.AddInt64(s.busyCounters[n], 1)
+	atomic.AddInt32(s.busyCounters[n], 1)
 	return s
 }
 
 func (s *statistics) AddFloat(n string, f float64) Recorder {
 	s.assertDeclaredAs(n, "float")
 	s.floatVars[n].Add(f)
-	atomic.AddInt64(s.busyCounters[n], 1)
+	atomic.AddInt32(s.busyCounters[n], 1)
 	return s
 }
 
@@ -216,8 +216,8 @@ func (s *statistics) UpdateIdleTime() time.Duration {
 		return time.Duration(0)
 	}
 
-	count := atomic.LoadInt64(&s.busyCount)
-	atomic.StoreInt64(&s.busyCount, 0)
+	count := atomic.LoadInt32(&s.busyCount)
+	atomic.StoreInt32(&s.busyCount, 0)
 
 	now := time.Now().UnixNano()
 

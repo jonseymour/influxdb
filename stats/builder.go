@@ -20,7 +20,7 @@ func newBuilder(k string, n string, tags map[string]string, r registryClient) Bu
 		stringVars:   map[string]*expvar.String{},
 		floatVars:    map[string]*expvar.Float{},
 		types:        map[string]string{},
-		busyCounters: map[string]*int64{},
+		busyCounters: map[string]*int32{},
 	}
 
 	builder.Init()
