@@ -482,10 +482,14 @@ func (c *Cache) updateSnapshots() {
 }
 
 func (c *Cache) Open() {
-	c.stats.Open()
+	if !c.stats.IsOpen() {
+		c.stats.Open()
+	}
 }
 
 // Ensure that we stop logging these statistics at some point in the future
 func (c *Cache) Close() {
-	c.stats.Close()
+	if c.stats.IsOpen() {
+		c.stats.Close()
+	}
 }

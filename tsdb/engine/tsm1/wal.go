@@ -118,7 +118,9 @@ func (l *WAL) Open() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	l.stats.Open()
+	if !l.stats.IsOpen() {
+		l.stats.Open()
+	}
 
 	if l.LoggingEnabled {
 		l.logger.Printf("tsm1 WAL starting with %d segment size\n", l.SegmentSize)
@@ -355,7 +357,9 @@ func (l *WAL) Close() error {
 		l.currentSegmentWriter = nil
 	}
 
-	l.stats.Close()
+	if l.stats.IsOpen() {
+		l.stats.Close()
+	}
 
 	return nil
 }

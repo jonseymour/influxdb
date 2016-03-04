@@ -266,7 +266,9 @@ func (f *FileStore) Open() error {
 		err error
 	}
 
-	f.stats.Open()
+	if !f.stats.IsOpen() {
+		f.stats.Open()
+	}
 
 	readerC := make(chan *res)
 	for i, fn := range files {
@@ -329,7 +331,9 @@ func (f *FileStore) Close() error {
 		f.Close()
 	}
 
-	f.stats.Close()
+	if f.stats.IsOpen() {
+		f.stats.Close()
+	}
 
 	f.files = nil
 	return nil

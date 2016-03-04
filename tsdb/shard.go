@@ -148,7 +148,9 @@ func (s *Shard) Open() error {
 			return fmt.Errorf("load metadata index: %s", err)
 		}
 
-		s.stats.Open()
+		if !s.stats.IsOpen() {
+			s.stats.Open()
+		}
 
 		return nil
 	}(); err != nil {
@@ -173,7 +175,9 @@ func (s *Shard) close() error {
 		}()
 		return s.engine.Close()
 	}
-	s.stats.Close()
+	if s.stats.IsOpen() {
+		s.stats.Close()
+	}
 	return nil
 }
 
