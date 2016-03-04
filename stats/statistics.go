@@ -211,6 +211,10 @@ func (s *statistics) isOpen() bool {
 	return s.isRecorderOpen
 }
 
+func (s *statistics) IsOpen() bool {
+	return s.isOpen()
+}
+
 // Return true if there is less than 2 references to the receiver
 func (s *statistics) refs() int {
 	s.mu.RLock()

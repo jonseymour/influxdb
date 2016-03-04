@@ -163,6 +163,8 @@ type Recorder interface {
 	Statistics
 	// Open the Recorder to allow views to see it.
 	Open() Recorder
+	// True if the Recorder is (still) open.
+	IsOpen() bool
 	// Set a level statistics to a particular integer value
 	SetInt(n string, i int64) Recorder
 	// Set a level statistic to a particular float value
