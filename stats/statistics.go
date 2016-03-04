@@ -14,24 +14,43 @@ var errUnexpectedRefCount = errors.New("unexpected reference counting error")
 
 // The type which is used to implement both the Builder and Statistics interface
 type statistics struct {
+	// idleSince is the number of nanoseconds since the object has been busy
+	// it is declared as the first member to guarantee required 64-bit alignment
+	idleSince int64
 	expvar.Map
-	mu               sync.RWMutex
-	registry         registryClient
-	key              string
-	name             string
-	tags             map[string]string
-	values           *expvar.Map
-	intVars          map[string]*expvar.Int
-	stringVars       map[string]*expvar.String
-	floatVars        map[string]*expvar.Float
-	types            map[string]string
-	busyCounters     map[string]*int32
-	built            bool
-	isRecorderOpen   bool
-	refsCount        int
-	busyCount        int32
-	notBusyCount     int32
-	idleSince        int64
+	// mu guards access to mutable elements during the building phase
+	mu sync.RWMutex
+	// registry is a reference to a private interface of the Registry
+	registry registryClient
+	// key is a unique key for this object
+	key string
+	// name is the name of the measure into which these statistics will be written
+	name string
+	// tags are the tags that uniquely identify a distinct series in a measurement
+	tags map[string]string
+	// values is the Map into which statistic values are placed
+	values *expvar.Map
+	// intVars is go map which indexes the integer variables by name
+	intVars map[string]*expvar.Int
+	// stringVars is go map which indexes the string variables by name
+	stringVars map[string]*expvar.String
+	// floatVars is go map which indexes the float variables by name
+	floatVars map[string]*expvar.Float
+	// types records the declared type of each variable
+	types map[string]string
+	// busyCounters maps a variable name to the counter incremented when the variable is changed
+	busyCounters map[string]*int32
+	// built is false during building and true thereafter
+	built bool
+	// isRecorderOpen is true if the Recorder interface for the object is still open.
+	isRecorderOpen bool
+	// refsCount is the number of open references to this object
+	refsCount int
+	// busyCount is zero if the object is idle, and non-zero otherwise
+	busyCount int32
+	// notBusyCount is used to count updates to variables that don't affect the busy/idle state
+	notBusyCount int32
+	// disableIdleTimer is true if reports of these statistics are not be suppressed, even if they are idled
 	disableIdleTimer bool
 }
 
