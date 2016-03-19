@@ -1,0 +1,113 @@
+{
+	"ImportPath": "github.com/influxdb/influxdb",
+	"GoVersion": "go1.6",
+	"GodepVersion": "v60",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "collectd.org/api",
+			"Rev": "eed84f2a2b007d1ff0446a7709444d74df624d43"
+		},
+		{
+			"ImportPath": "collectd.org/cdtime",
+			"Rev": "eed84f2a2b007d1ff0446a7709444d74df624d43"
+		},
+		{
+			"ImportPath": "collectd.org/network",
+			"Rev": "eed84f2a2b007d1ff0446a7709444d74df624d43"
+		},
+		{
+			"ImportPath": "github.com/BurntSushi/toml",
+			"Comment": "v0.1.0-21-g056c9bc",
+			"Rev": "056c9bc7be7190eaa7715723883caffa5f8fa3e4"
+		},
+		{
+			"ImportPath": "github.com/armon/go-metrics",
+			"Rev": "b2d95e5291cdbc26997d1301a5e467ecbb240e25"
+		},
+		{
+			"ImportPath": "github.com/bmizerany/pat",
+			"Rev": "b8a35001b773c267eb260a691f4e5499a3531600"
+		},
+		{
+			"ImportPath": "github.com/boltdb/bolt",
+			"Comment": "v1.1.0-81-g0fd4c05",
+			"Rev": "0fd4c0547d204c7b1cad6db6f3adad5f2cf453e5"
+		},
+		{
+			"ImportPath": "github.com/davecgh/go-spew/spew",
+			"Rev": "2df174808ee097f90d259e432cc04442cf60be21"
+		},
+		{
+			"ImportPath": "github.com/dgryski/go-bits",
+			"Rev": "86c69b3c986f9d40065df5bd8f765796549eef2e"
+		},
+		{
+			"ImportPath": "github.com/dgryski/go-bitstream",
+			"Rev": "27cd5973303fde7d914860be1ea4b927a6be0c92"
+		},
+		{
+			"ImportPath": "github.com/gogo/protobuf/proto",
+			"Comment": "v0.1-147-g5dbe2a9",
+			"Rev": "5dbe2a9482b48e988cadb27b8e06448688fc2f25"
+		},
+		{
+			"ImportPath": "github.com/golang/snappy",
+			"Rev": "723cc1e459b8eea2dea4583200fd60757d40097a"
+		},
+		{
+			"ImportPath": "github.com/hashicorp/go-msgpack/codec",
+			"Rev": "fa3f63826f7c23912c15263591e65d54d080b458"
+		},
+		{
+			"ImportPath": "github.com/hashicorp/raft",
+			"Rev": "e8e7f5ce00ba06ffe1effacee29188a213a8ad54"
+		},
+		{
+			"ImportPath": "github.com/hashicorp/raft-boltdb",
+			"Rev": "d1e82c1ec3f15ee991f7cc7ffd5b67ff6f5bbaee"
+		},
+		{
+			"ImportPath": "github.com/influxdb/usage-client/v1",
+			"Rev": "475977e68d79883d9c8d67131c84e4241523f452"
+		},
+		{
+			"ImportPath": "github.com/jwilder/encoding/simple8b",
+			"Rev": "07d88d4f35eec497617bee0c7bfe651a796dae13"
+		},
+		{
+			"ImportPath": "github.com/kimor79/gollectd",
+			"Rev": "61d0deeb4ffcc167b2a1baa8efd72365692811bc"
+		},
+		{
+			"ImportPath": "github.com/paulbellamy/ratecounter",
+			"Rev": "5a11f585a31379765c190c033b6ad39956584447"
+		},
+		{
+			"ImportPath": "github.com/peterh/liner",
+			"Rev": "ad1edfd30321d8f006ccf05f1e0524adeb943060"
+		},
+		{
+			"ImportPath": "github.com/rakyll/statik/fs",
+			"Rev": "274df120e9065bdd08eb1120e0375e3dc1ae8465"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/bcrypt",
+			"Rev": "173ce04bfaf66c7bb0fa9d5c0bfd93e773909dbd"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/blowfish",
+			"Rev": "173ce04bfaf66c7bb0fa9d5c0bfd93e773909dbd"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "9d4e42a20653790449273b3c85e67d6d8bae6e2e"
+		},
+		{
+			"ImportPath": "gopkg.in/fatih/pool.v2",
+			"Rev": "cba550ebf9bce999a02e963296d4bc7a486cb715"
+		}
+	]
+}
