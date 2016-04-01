@@ -222,6 +222,30 @@ cpu,host=serverB,region=uswest value=25  0
 	}
 }
 
+func TestShard_Reopen(t *testing.T) {
+	tmpDir, _ := ioutil.TempDir("", "shard_test")
+	defer os.RemoveAll(tmpDir)
+	tmpShard := path.Join(tmpDir, "shard")
+	tmpWal := path.Join(tmpDir, "wal")
+
+	index := tsdb.NewDatabaseIndex("db")
+	opts := tsdb.NewEngineOptions()
+	opts.Config.WALDir = filepath.Join(tmpDir, "wal")
+
+	sh := tsdb.NewShard(1, index, tmpShard, tmpWal, opts)
+
+	cycle := func() {
+		if err := sh.Open(); err != nil {
+			t.Fatalf("error opening shard: %s", err.Error())
+		}
+		if err := sh.Close(); err != nil {
+			t.Fatalf("error closing shard: %s", err.Error())
+		}
+	}
+	cycle()
+	cycle()
+}
+
 func BenchmarkWritePoints_NewSeries_1K(b *testing.B)   { benchmarkWritePoints(b, 38, 3, 3, 1) }
 func BenchmarkWritePoints_NewSeries_100K(b *testing.B) { benchmarkWritePoints(b, 32, 5, 5, 1) }
 func BenchmarkWritePoints_NewSeries_250K(b *testing.B) { benchmarkWritePoints(b, 80, 5, 5, 1) }
