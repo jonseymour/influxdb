@@ -178,9 +178,9 @@ func (d *DatabaseIndex) measurementsByExpr(expr influxql.Expr) (Measurements, bo
 			}
 
 			// Match on name, if specified.
-			if tag.Val == "name" {
+			if tag.Val == "_name" {
 				return d.measurementsByNameFilter(tf.Op, tf.Value, tf.Regex), true, nil
-			} else if strings.HasPrefix(tag.Val, "_") {
+			} else if influxql.IsSystemName(tag.Val) {
 				return nil, false, nil
 			}
 
@@ -304,8 +304,11 @@ func (d *DatabaseIndex) measurementsByTagFilters(filters []*TagFilter) Measureme
 	return measurements
 }
 
-// measurementsByRegex returns the measurements that match the regex.
-func (d *DatabaseIndex) measurementsByRegex(re *regexp.Regexp) Measurements {
+// MeasurementsByRegex returns the measurements that match the regex.
+func (d *DatabaseIndex) MeasurementsByRegex(re *regexp.Regexp) Measurements {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
 	var matches Measurements
 	for _, m := range d.measurements {
 		if re.MatchString(m.Name) {
@@ -338,8 +341,6 @@ func (d *DatabaseIndex) DropMeasurement(name string) {
 	for _, s := range m.seriesByID {
 		delete(d.series, s.Key)
 	}
-
-	m.drop()
 
 	d.statMap.Add(statDatabaseSeries, int64(-len(m.seriesByID)))
 	d.statMap.Add(statDatabaseMeasurements, -1)
@@ -382,8 +383,6 @@ type Measurement struct {
 	measurement         *Measurement
 	seriesByTagKeyValue map[string]map[string]SeriesIDs // map from tag key to value to sorted set of series ids
 	seriesIDs           SeriesIDs                       // sorted list of series IDs in this measurement
-
-	statMap *expvar.Map
 }
 
 // NewMeasurement allocates and initializes a new Measurement.
@@ -396,12 +395,6 @@ func NewMeasurement(name string, idx *DatabaseIndex) *Measurement {
 		seriesByID:          make(map[uint64]*Series),
 		seriesByTagKeyValue: make(map[string]map[string]SeriesIDs),
 		seriesIDs:           make(SeriesIDs, 0),
-
-		statMap: influxdb.NewStatistics(
-			fmt.Sprintf("measurement:%s.%s", name, idx.name),
-			"measurement",
-			map[string]string{"database": idx.name, "measurement": name},
-		),
 	}
 }
 
@@ -494,7 +487,6 @@ func (m *Measurement) AddSeries(s *Series) bool {
 		valueMap[v] = ids
 	}
 
-	m.statMap.Add(statMeasurementSeries, 1)
 	return true
 }
 
@@ -542,15 +534,7 @@ func (m *Measurement) DropSeries(seriesID uint64) {
 		}
 	}
 
-	m.statMap.Add(statMeasurementSeries, -1)
-
 	return
-}
-
-// drop handles any cleanup for when a measurement is dropped.
-// Currently only cleans up stats.
-func (m *Measurement) drop() {
-	m.statMap.Add(statMeasurementSeries, int64(-len(m.seriesIDs)))
 }
 
 // filters walks the where clause of a select statement and returns a map with all series ids
@@ -740,12 +724,12 @@ func (m *Measurement) idsForExpr(n *influxql.BinaryExpr) (SeriesIDs, influxql.Ex
 
 	// For fields, return all series IDs from this measurement and return
 	// the expression passed in, as the filter.
-	if name.Val != "name" && m.HasField(name.Val) {
+	if name.Val != "_name" && m.HasField(name.Val) {
 		return m.seriesIDs, n, nil
 	}
 
 	tagVals, ok := m.seriesByTagKeyValue[name.Val]
-	if name.Val != "name" && !ok {
+	if name.Val != "_name" && !ok {
 		return nil, nil, nil
 	}
 
@@ -753,8 +737,8 @@ func (m *Measurement) idsForExpr(n *influxql.BinaryExpr) (SeriesIDs, influxql.Ex
 	if str, ok := value.(*influxql.StringLiteral); ok {
 		var ids SeriesIDs
 
-		// Special handling for "name" to match measurement name.
-		if name.Val == "name" {
+		// Special handling for "_name" to match measurement name.
+		if name.Val == "_name" {
 			if (n.Op == influxql.EQ && str.Val == m.Name) || (n.Op == influxql.NEQ && str.Val != m.Name) {
 				return m.seriesIDs, &influxql.BooleanLiteral{Val: true}, nil
 			}
@@ -774,8 +758,8 @@ func (m *Measurement) idsForExpr(n *influxql.BinaryExpr) (SeriesIDs, influxql.Ex
 	if re, ok := value.(*influxql.RegexLiteral); ok {
 		var ids SeriesIDs
 
-		// Special handling for "name" to match measurement name.
-		if name.Val == "name" {
+		// Special handling for "_name" to match measurement name.
+		if name.Val == "_name" {
 			match := re.Val.MatchString(m.Name)
 			if (n.Op == influxql.EQREGEX && match) || (n.Op == influxql.NEQREGEX && !match) {
 				return m.seriesIDs, &influxql.BooleanLiteral{Val: true}, nil

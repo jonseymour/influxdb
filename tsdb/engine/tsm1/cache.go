@@ -1,7 +1,6 @@
 package tsm1
 
 import (
-	"expvar"
 	"fmt"
 	"log"
 	"os"
@@ -9,12 +8,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/influxdata/influxdb"
+	"github.com/influxdata/influxdb/stats"
 	"github.com/influxdata/influxdb/tsdb"
 )
 
-var ErrCacheMemoryExceeded = fmt.Errorf("cache maximum memory size exceeded")
-var ErrCacheInvalidCheckpoint = fmt.Errorf("invalid checkpoint")
+var (
+	ErrCacheMemoryExceeded    = fmt.Errorf("cache maximum memory size exceeded")
+	ErrCacheInvalidCheckpoint = fmt.Errorf("invalid checkpoint")
+	ErrSnapshotInProgress     = fmt.Errorf("snapshot in progress")
+)
 
 // entry is a set of values and some metadata.
 type entry struct {
@@ -103,11 +105,12 @@ type Cache struct {
 	// they are read only and should never be modified
 	snapshot     *Cache
 	snapshotSize uint64
+	snapshotting bool
 
 	// This number is the number of pending or failed WriteSnaphot attempts since the last successful one.
 	snapshotAttempts int
 
-	statMap      *expvar.Map // nil for snapshots.
+	stats        stats.Recorder
 	lastSnapshot time.Time
 }
 
@@ -116,20 +119,19 @@ type Cache struct {
 func NewCache(maxSize uint64, path string) *Cache {
 	db, rp := tsdb.DecodeStorePath(path)
 	c := &Cache{
-		maxSize: maxSize,
-		store:   make(map[string]*entry),
-		statMap: influxdb.NewStatistics(
-			"tsm1_cache:"+path,
-			"tsm1_cache",
-			map[string]string{"path": path, "database": db, "retentionPolicy": rp},
-		),
+		maxSize:      maxSize,
+		store:        make(map[string]*entry),
 		lastSnapshot: time.Now(),
+		stats: stats.Root.NewBuilder("tsm1_cache:"+path, "tsm1_cache", map[string]string{"path": path, "database": db, "retentionPolicy": rp}).
+			DeclareInt(statCacheAgeMs, 0).
+			DontUpdateBusyCount(statCacheAgeMs).
+			DeclareInt(statCachedBytes, 0).
+			DeclareInt(statSnapshots, 0).
+			DeclareInt(statCacheDiskBytes, 0).
+			DeclareInt(statCacheMemoryBytes, 0).
+			DeclareInt(statWALCompactionTimeMs, 0).
+			MustBuild(),
 	}
-	c.UpdateAge()
-	c.UpdateCompactTime(0)
-	c.updateCachedBytes(0)
-	c.updateMemSize(0)
-	c.updateSnapshots()
 	return c
 }
 
@@ -151,7 +153,7 @@ func (c *Cache) Write(key string, values []Value) error {
 	c.mu.Unlock()
 
 	// Update the memory size stat
-	c.updateMemSize(int64(addedSize))
+	c.stats.AddInt(statCacheMemoryBytes, int64(addedSize))
 
 	return nil
 }
@@ -181,19 +183,22 @@ func (c *Cache) WriteMulti(values map[string][]Value) error {
 	c.mu.Unlock()
 
 	// Update the memory size stat
-	c.updateMemSize(int64(totalSz))
+	c.stats.AddInt(statCacheMemoryBytes, int64(totalSz))
 
 	return nil
 }
 
 // Snapshot will take a snapshot of the current cache, add it to the slice of caches that
 // are being flushed, and reset the current cache with new values
-func (c *Cache) Snapshot() *Cache {
-	c.commit.Lock() // must be released by a subsequent call to ClearSnapshot.
-
+func (c *Cache) Snapshot() (*Cache, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if c.snapshotting {
+		return nil, ErrSnapshotInProgress
+	}
+
+	c.snapshotting = true
 	c.snapshotAttempts++ // increment the number of times we tried to do this
 
 	// If no snapshot exists, create a new one, otherwise update the existing snapshot
@@ -225,11 +230,12 @@ func (c *Cache) Snapshot() *Cache {
 	c.size = 0
 	c.lastSnapshot = time.Now()
 
-	c.updateMemSize(-int64(snapshotSize)) // decrement the number of bytes in cache
-	c.updateCachedBytes(snapshotSize)     // increment the number of bytes added to the snapshot
+	c.stats.AddInt(statCacheMemoryBytes, -int64(snapshotSize)) // decrement the number of bytes in cache
+	c.stats.AddInt(statCachedBytes, int64(snapshotSize))
+
 	c.updateSnapshots()
 
-	return c.snapshot
+	return c.snapshot, nil
 }
 
 // Deduplicate sorts the snapshot before returning it. The compactor and any queries
@@ -243,12 +249,12 @@ func (c *Cache) Deduplicate() {
 // ClearSnapshot will remove the snapshot cache from the list of flushing caches and
 // adjust the size
 func (c *Cache) ClearSnapshot(success bool) {
-	defer c.commit.Unlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.snapshotting = false
 
 	if success {
-		c.mu.Lock()
-		defer c.mu.Unlock()
-
 		c.snapshotAttempts = 0
 		c.snapshotSize = 0
 		c.snapshot = nil
@@ -467,34 +473,30 @@ func (cl *CacheLoader) Load(cache *Cache) error {
 func (c *Cache) UpdateAge() {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	ageStat := new(expvar.Int)
-	ageStat.Set(int64(time.Now().Sub(c.lastSnapshot) / time.Millisecond))
-	c.statMap.Set(statCacheAgeMs, ageStat)
+	c.stats.SetInt(statCacheAgeMs, int64(time.Now().Sub(c.lastSnapshot)/time.Millisecond))
 }
 
 // Updates WAL compaction time statistic
 func (c *Cache) UpdateCompactTime(d time.Duration) {
-	c.statMap.Add(statWALCompactionTimeMs, int64(d/time.Millisecond))
-}
-
-// Update the cachedBytes counter
-func (c *Cache) updateCachedBytes(b uint64) {
-	c.statMap.Add(statCachedBytes, int64(b))
-}
-
-// Update the memSize level
-func (c *Cache) updateMemSize(b int64) {
-	c.statMap.Add(statCacheMemoryBytes, b)
+	c.stats.AddInt(statWALCompactionTimeMs, int64(d/time.Millisecond))
 }
 
 // Update the snapshotsCount and the diskSize levels
 func (c *Cache) updateSnapshots() {
 	// Update disk stats
-	diskSizeStat := new(expvar.Int)
-	diskSizeStat.Set(int64(c.snapshotSize))
-	c.statMap.Set(statCacheDiskBytes, diskSizeStat)
+	c.stats.SetInt(statCacheDiskBytes, int64(c.snapshotSize))
+	c.stats.SetInt(statSnapshots, int64(c.snapshotAttempts))
+}
 
-	snapshotsStat := new(expvar.Int)
-	snapshotsStat.Set(int64(c.snapshotAttempts))
-	c.statMap.Set(statSnapshots, snapshotsStat)
+func (c *Cache) Open() {
+	if !c.stats.IsOpen() {
+		c.stats.Open()
+	}
+}
+
+// Ensure that we stop logging these statistics at some point in the future
+func (c *Cache) Close() {
+	if c.stats.IsOpen() {
+		c.stats.Close()
+	}
 }

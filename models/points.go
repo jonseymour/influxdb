@@ -27,7 +27,13 @@ var (
 		'=': []byte(`\=`),
 	}
 
-	ErrPointMustHaveAField = errors.New("point without fields is unsupported")
+	ErrPointMustHaveAField  = errors.New("point without fields is unsupported")
+	ErrInvalidNumber        = errors.New("invalid number")
+	ErrMaxKeyLengthExceeded = errors.New("max key length exceeded")
+)
+
+const (
+	MaxKeyLength = 65535
 )
 
 // Point defines the values that will be written to the database
@@ -201,6 +207,10 @@ func parsePoint(buf []byte, defaultTime time.Time, precision string) (Point, err
 	// measurement name is required
 	if len(key) == 0 {
 		return nil, fmt.Errorf("missing measurement")
+	}
+
+	if len(key) > MaxKeyLength {
+		return nil, fmt.Errorf("max key length exceeded: %v > %v", len(key), MaxKeyLength)
 	}
 
 	// scan the second block is which is field1=value1[,field2=value2,...]
@@ -664,12 +674,12 @@ func scanNumber(buf []byte, i int) (int, error) {
 		i++
 		// There must be more characters now, as just '-' is illegal.
 		if i == len(buf) {
-			return i, fmt.Errorf("invalid number")
+			return i, ErrInvalidNumber
 		}
 	}
 
 	// how many decimal points we've see
-	decimals := 0
+	decimal := false
 
 	// indicates the number is float in scientific notation
 	scientific := false
@@ -690,12 +700,11 @@ func scanNumber(buf []byte, i int) (int, error) {
 		}
 
 		if buf[i] == '.' {
-			decimals++
-		}
-
-		// Can't have more than 1 decimal (e.g. 1.1.1 should fail)
-		if decimals > 1 {
-			return i, fmt.Errorf("invalid number")
+			// Can't have more than 1 decimal (e.g. 1.1.1 should fail)
+			if decimal {
+				return i, ErrInvalidNumber
+			}
+			decimal = true
 		}
 
 		// `e` is valid for floats but not as the first char
@@ -713,16 +722,32 @@ func scanNumber(buf []byte, i int) (int, error) {
 
 		// NaN is an unsupported value
 		if i+2 < len(buf) && (buf[i] == 'N' || buf[i] == 'n') {
-			return i, fmt.Errorf("invalid number")
+			return i, ErrInvalidNumber
 		}
 
 		if !isNumeric(buf[i]) {
-			return i, fmt.Errorf("invalid number")
+			return i, ErrInvalidNumber
 		}
 		i++
 	}
-	if isInt && (decimals > 0 || scientific) {
-		return i, fmt.Errorf("invalid number")
+
+	if isInt && (decimal || scientific) {
+		return i, ErrInvalidNumber
+	}
+
+	numericDigits := i - start
+	if isInt {
+		numericDigits--
+	}
+	if decimal {
+		numericDigits--
+	}
+	if buf[start] == '-' {
+		numericDigits--
+	}
+
+	if numericDigits == 0 {
+		return i, ErrInvalidNumber
 	}
 
 	// It's more common that numbers will be within min/max range for their type but we need to prevent
@@ -732,7 +757,7 @@ func scanNumber(buf []byte, i int) (int, error) {
 	if isInt {
 		// Make sure the last char is an 'i' for integers (e.g. 9i10 is not valid)
 		if buf[i-1] != 'i' {
-			return i, fmt.Errorf("invalid number")
+			return i, ErrInvalidNumber
 		}
 		// Parse the int to check bounds the number of digits could be larger than the max range
 		// We subtract 1 from the index to remove the `i` from our tests
@@ -1086,8 +1111,13 @@ func NewPoint(name string, tags Tags, fields Fields, time time.Time) (Point, err
 		}
 	}
 
+	key := MakeKey([]byte(name), tags)
+	if len(key) > MaxKeyLength {
+		return nil, fmt.Errorf("max key length exceeded: %v > %v", len(key), MaxKeyLength)
+	}
+
 	return &point{
-		key:    MakeKey([]byte(name), tags),
+		key:    key,
 		time:   time,
 		fields: fields.MarshalBinary(),
 	}, nil
@@ -1417,7 +1447,7 @@ func newFieldsFromBinary(buf []byte) Fields {
 			if valueBuf[0] == '"' {
 				value = unescapeStringField(string(valueBuf[1 : len(valueBuf)-1]))
 				// Check for numeric characters and special NaN or Inf
-			} else if (valueBuf[0] >= '0' && valueBuf[0] <= '9') || valueBuf[0] == '-' || valueBuf[0] == '+' || valueBuf[0] == '.' ||
+			} else if (valueBuf[0] >= '0' && valueBuf[0] <= '9') || valueBuf[0] == '-' || valueBuf[0] == '.' ||
 				valueBuf[0] == 'N' || valueBuf[0] == 'n' || // NaN
 				valueBuf[0] == 'I' || valueBuf[0] == 'i' { // Inf
 

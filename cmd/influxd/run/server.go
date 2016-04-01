@@ -2,14 +2,12 @@ package run
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
-	"strings"
 	"time"
 
 	"github.com/influxdata/influxdb"
@@ -36,6 +34,12 @@ import (
 	// Initialize the engine packages
 	_ "github.com/influxdata/influxdb/tsdb/engine"
 )
+
+var startTime time.Time
+
+func init() {
+	startTime = time.Now().UTC()
+}
 
 // BuildInfo represents the build details for the server code.
 type BuildInfo struct {
@@ -124,9 +128,6 @@ func NewServer(c *Config, buildInfo *BuildInfo) (*Server, error) {
 		}
 	}
 
-	// 0.11 we no longer use peers.json.  Remove the file if we have one on disk.
-	os.RemoveAll(filepath.Join(c.Meta.Dir, "peers.json"))
-
 	node, err := influxdb.LoadNode(c.Meta.Dir)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -134,14 +135,6 @@ func NewServer(c *Config, buildInfo *BuildInfo) (*Server, error) {
 		}
 
 		node = influxdb.NewNode(c.Meta.Dir)
-	}
-
-	// In 0.11 we removed MetaServers from node.json.  To avoid confusion for
-	// existing users, force a re-save of the node.json file to remove that property
-	// if it happens to exist.
-	nodeContents, err := ioutil.ReadFile(filepath.Join(c.Meta.Dir, "node.json"))
-	if err == nil && strings.Contains(string(nodeContents), "MetaServers") {
-		node.Save()
 	}
 
 	// In 0.10.0 bind-address got moved to the top level. Check
@@ -190,9 +183,6 @@ func NewServer(c *Config, buildInfo *BuildInfo) (*Server, error) {
 
 		// Copy TSDB configuration.
 		s.TSDBStore.EngineOptions.EngineVersion = c.Data.Engine
-		s.TSDBStore.EngineOptions.MaxWALSize = c.Data.MaxWALSize
-		s.TSDBStore.EngineOptions.WALFlushInterval = time.Duration(c.Data.WALFlushInterval)
-		s.TSDBStore.EngineOptions.WALPartitionFlushDelay = time.Duration(c.Data.WALPartitionFlushDelay)
 
 		// Set the shard writer
 		s.ShardWriter = cluster.NewShardWriter(time.Duration(c.Cluster.ShardWriterTimeout),
@@ -450,6 +440,11 @@ func (s *Server) Open() error {
 
 		// Open TSDB store.
 		if err := s.TSDBStore.Open(); err != nil {
+			// Provide helpful error if user needs to upgrade shards to
+			// tsm1.
+			if serr, ok := err.(tsdb.ShardError); ok && serr.Err == tsdb.ErrUnknownEngineFormat {
+				return influxdb.ErrUpgradeEngine
+			}
 			return fmt.Errorf("open tsdb store: %s", err)
 		}
 
@@ -596,6 +591,7 @@ func (s *Server) reportServer() {
 					"num_series":       numSeries,
 					"num_measurements": numMeasurements,
 					"num_databases":    numDatabases,
+					"uptime":           time.Since(startTime).Seconds(),
 				},
 			},
 		},

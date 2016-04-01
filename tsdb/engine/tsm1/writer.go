@@ -70,6 +70,7 @@ import (
 	"hash/crc32"
 	"io"
 	"math"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -93,11 +94,15 @@ const (
 
 	// Max number of blocks for a given key that can exist in a single file
 	maxIndexEntries = (1 << (indexCountSize * 8)) - 1
+
+	// max length of a key in an index entry (measurement + tags)
+	maxKeyLength = (1 << (2 * 8)) - 1
 )
 
 var (
-	ErrNoValues  = fmt.Errorf("no values written")
-	ErrTSMClosed = fmt.Errorf("tsm file closed")
+	ErrNoValues             = fmt.Errorf("no values written")
+	ErrTSMClosed            = fmt.Errorf("tsm file closed")
+	ErrMaxKeyLengthExceeded = fmt.Errorf("max key length exceeded")
 )
 
 // TSMWriter writes TSM formatted key and values.
@@ -532,6 +537,10 @@ func (t *tsmWriter) Write(key string, values Values) error {
 		return nil
 	}
 
+	if len(key) > maxKeyLength {
+		return ErrMaxKeyLengthExceeded
+	}
+
 	// Write header only after we have some data to write.
 	if t.n == 0 {
 		if err := t.writeHeader(); err != nil {
@@ -637,6 +646,12 @@ func (t *tsmWriter) WriteIndex() error {
 func (t *tsmWriter) Close() error {
 	if err := t.w.Flush(); err != nil {
 		return err
+	}
+
+	if f, ok := t.wrapped.(*os.File); ok {
+		if err := f.Sync(); err != nil {
+			return err
+		}
 	}
 
 	if c, ok := t.wrapped.(io.Closer); ok {

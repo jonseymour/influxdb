@@ -236,7 +236,7 @@ func (c *floatAscendingCursor) peekCache() (t int64, v float64) {
 	}
 
 	item := c.cache.values[c.cache.pos]
-	return item.UnixNano(), item.Value().(float64)
+	return item.UnixNano(), item.(*FloatValue).value
 }
 
 // peekTSM returns the current time/value from tsm.
@@ -246,7 +246,7 @@ func (c *floatAscendingCursor) peekTSM() (t int64, v float64) {
 	}
 
 	item := c.tsm.values[c.tsm.pos]
-	return item.UnixNano(), item.Value().(float64)
+	return item.UnixNano(), item.value
 }
 
 // next returns the next key/value for the cursor.
@@ -327,7 +327,7 @@ func newFloatDescendingCursor(seek int64, cacheValues Values, tsmKeyCursor *KeyC
 	}
 
 	c.tsm.keyCursor = tsmKeyCursor
-	c.tsm.buf = make([]FloatValue, 1000)
+	c.tsm.buf = make([]FloatValue, 10)
 	c.tsm.values, _ = c.tsm.keyCursor.ReadFloatBlock(c.tsm.buf)
 	c.tsm.pos = sort.Search(len(c.tsm.values), func(i int) bool {
 		return c.tsm.values[i].UnixNano() >= seek
@@ -346,7 +346,7 @@ func (c *floatDescendingCursor) peekCache() (t int64, v float64) {
 	}
 
 	item := c.cache.values[c.cache.pos]
-	return item.UnixNano(), item.Value().(float64)
+	return item.UnixNano(), item.(*FloatValue).value
 }
 
 // peekTSM returns the current time/value from tsm.
@@ -356,7 +356,7 @@ func (c *floatDescendingCursor) peekTSM() (t int64, v float64) {
 	}
 
 	item := c.tsm.values[c.tsm.pos]
-	return item.UnixNano(), item.Value().(float64)
+	return item.UnixNano(), item.value
 }
 
 // next returns the next key/value for the cursor.
@@ -407,7 +407,7 @@ func (c *floatDescendingCursor) nextTSM() {
 		if len(c.tsm.values) == 0 {
 			return
 		}
-		c.tsm.pos = 0
+		c.tsm.pos = len(c.tsm.values) - 1
 	}
 }
 
@@ -568,7 +568,7 @@ func (c *integerAscendingCursor) peekCache() (t int64, v int64) {
 	}
 
 	item := c.cache.values[c.cache.pos]
-	return item.UnixNano(), item.Value().(int64)
+	return item.UnixNano(), item.(*IntegerValue).value
 }
 
 // peekTSM returns the current time/value from tsm.
@@ -578,7 +578,7 @@ func (c *integerAscendingCursor) peekTSM() (t int64, v int64) {
 	}
 
 	item := c.tsm.values[c.tsm.pos]
-	return item.UnixNano(), item.Value().(int64)
+	return item.UnixNano(), item.value
 }
 
 // next returns the next key/value for the cursor.
@@ -659,7 +659,7 @@ func newIntegerDescendingCursor(seek int64, cacheValues Values, tsmKeyCursor *Ke
 	}
 
 	c.tsm.keyCursor = tsmKeyCursor
-	c.tsm.buf = make([]IntegerValue, 1000)
+	c.tsm.buf = make([]IntegerValue, 10)
 	c.tsm.values, _ = c.tsm.keyCursor.ReadIntegerBlock(c.tsm.buf)
 	c.tsm.pos = sort.Search(len(c.tsm.values), func(i int) bool {
 		return c.tsm.values[i].UnixNano() >= seek
@@ -678,7 +678,7 @@ func (c *integerDescendingCursor) peekCache() (t int64, v int64) {
 	}
 
 	item := c.cache.values[c.cache.pos]
-	return item.UnixNano(), item.Value().(int64)
+	return item.UnixNano(), item.(*IntegerValue).value
 }
 
 // peekTSM returns the current time/value from tsm.
@@ -688,7 +688,7 @@ func (c *integerDescendingCursor) peekTSM() (t int64, v int64) {
 	}
 
 	item := c.tsm.values[c.tsm.pos]
-	return item.UnixNano(), item.Value().(int64)
+	return item.UnixNano(), item.value
 }
 
 // next returns the next key/value for the cursor.
@@ -739,7 +739,7 @@ func (c *integerDescendingCursor) nextTSM() {
 		if len(c.tsm.values) == 0 {
 			return
 		}
-		c.tsm.pos = 0
+		c.tsm.pos = len(c.tsm.values) - 1
 	}
 }
 
@@ -900,7 +900,7 @@ func (c *stringAscendingCursor) peekCache() (t int64, v string) {
 	}
 
 	item := c.cache.values[c.cache.pos]
-	return item.UnixNano(), item.Value().(string)
+	return item.UnixNano(), item.(*StringValue).value
 }
 
 // peekTSM returns the current time/value from tsm.
@@ -910,7 +910,7 @@ func (c *stringAscendingCursor) peekTSM() (t int64, v string) {
 	}
 
 	item := c.tsm.values[c.tsm.pos]
-	return item.UnixNano(), item.Value().(string)
+	return item.UnixNano(), item.value
 }
 
 // next returns the next key/value for the cursor.
@@ -991,7 +991,7 @@ func newStringDescendingCursor(seek int64, cacheValues Values, tsmKeyCursor *Key
 	}
 
 	c.tsm.keyCursor = tsmKeyCursor
-	c.tsm.buf = make([]StringValue, 1000)
+	c.tsm.buf = make([]StringValue, 10)
 	c.tsm.values, _ = c.tsm.keyCursor.ReadStringBlock(c.tsm.buf)
 	c.tsm.pos = sort.Search(len(c.tsm.values), func(i int) bool {
 		return c.tsm.values[i].UnixNano() >= seek
@@ -1010,7 +1010,7 @@ func (c *stringDescendingCursor) peekCache() (t int64, v string) {
 	}
 
 	item := c.cache.values[c.cache.pos]
-	return item.UnixNano(), item.Value().(string)
+	return item.UnixNano(), item.(*StringValue).value
 }
 
 // peekTSM returns the current time/value from tsm.
@@ -1020,7 +1020,7 @@ func (c *stringDescendingCursor) peekTSM() (t int64, v string) {
 	}
 
 	item := c.tsm.values[c.tsm.pos]
-	return item.UnixNano(), item.Value().(string)
+	return item.UnixNano(), item.value
 }
 
 // next returns the next key/value for the cursor.
@@ -1071,7 +1071,7 @@ func (c *stringDescendingCursor) nextTSM() {
 		if len(c.tsm.values) == 0 {
 			return
 		}
-		c.tsm.pos = 0
+		c.tsm.pos = len(c.tsm.values) - 1
 	}
 }
 
@@ -1232,7 +1232,7 @@ func (c *booleanAscendingCursor) peekCache() (t int64, v bool) {
 	}
 
 	item := c.cache.values[c.cache.pos]
-	return item.UnixNano(), item.Value().(bool)
+	return item.UnixNano(), item.(*BooleanValue).value
 }
 
 // peekTSM returns the current time/value from tsm.
@@ -1242,7 +1242,7 @@ func (c *booleanAscendingCursor) peekTSM() (t int64, v bool) {
 	}
 
 	item := c.tsm.values[c.tsm.pos]
-	return item.UnixNano(), item.Value().(bool)
+	return item.UnixNano(), item.value
 }
 
 // next returns the next key/value for the cursor.
@@ -1323,7 +1323,7 @@ func newBooleanDescendingCursor(seek int64, cacheValues Values, tsmKeyCursor *Ke
 	}
 
 	c.tsm.keyCursor = tsmKeyCursor
-	c.tsm.buf = make([]BooleanValue, 1000)
+	c.tsm.buf = make([]BooleanValue, 10)
 	c.tsm.values, _ = c.tsm.keyCursor.ReadBooleanBlock(c.tsm.buf)
 	c.tsm.pos = sort.Search(len(c.tsm.values), func(i int) bool {
 		return c.tsm.values[i].UnixNano() >= seek
@@ -1342,7 +1342,7 @@ func (c *booleanDescendingCursor) peekCache() (t int64, v bool) {
 	}
 
 	item := c.cache.values[c.cache.pos]
-	return item.UnixNano(), item.Value().(bool)
+	return item.UnixNano(), item.(*BooleanValue).value
 }
 
 // peekTSM returns the current time/value from tsm.
@@ -1352,7 +1352,7 @@ func (c *booleanDescendingCursor) peekTSM() (t int64, v bool) {
 	}
 
 	item := c.tsm.values[c.tsm.pos]
-	return item.UnixNano(), item.Value().(bool)
+	return item.UnixNano(), item.value
 }
 
 // next returns the next key/value for the cursor.
@@ -1403,7 +1403,7 @@ func (c *booleanDescendingCursor) nextTSM() {
 		if len(c.tsm.values) == 0 {
 			return
 		}
-		c.tsm.pos = 0
+		c.tsm.pos = len(c.tsm.values) - 1
 	}
 }
 

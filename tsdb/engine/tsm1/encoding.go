@@ -33,6 +33,8 @@ type Value interface {
 	Value() interface{}
 	Size() int
 	String() string
+
+	internalOnly()
 }
 
 func NewValue(t int64, value interface{}) Value {
@@ -56,6 +58,12 @@ func (e *EmptyValue) UnixNano() int64    { return tsdb.EOF }
 func (e *EmptyValue) Value() interface{} { return nil }
 func (e *EmptyValue) Size() int          { return 0 }
 func (e *EmptyValue) String() string     { return "" }
+
+func (_ *EmptyValue) internalOnly()   {}
+func (_ *StringValue) internalOnly()  {}
+func (_ *IntegerValue) internalOnly() {}
+func (_ *BooleanValue) internalOnly() {}
+func (_ *FloatValue) internalOnly()   {}
 
 // Values represented a time ascending sorted collection of Value types.
 // the underlying type should be the same across all values, but the interface
@@ -85,14 +93,14 @@ func (a Values) Encode(buf []byte) ([]byte, error) {
 		panic("unable to encode block type")
 	}
 
-	switch a[0].Value().(type) {
-	case float64:
+	switch a[0].(type) {
+	case *FloatValue:
 		return encodeFloatBlock(buf, a)
-	case int64:
+	case *IntegerValue:
 		return encodeIntegerBlock(buf, a)
-	case bool:
+	case *BooleanValue:
 		return encodeBooleanBlock(buf, a)
-	case string:
+	case *StringValue:
 		return encodeStringBlock(buf, a)
 	}
 
@@ -105,14 +113,14 @@ func (a Values) InfluxQLType() (influxql.DataType, error) {
 		return influxql.Unknown, fmt.Errorf("no values to infer type")
 	}
 
-	switch a[0].Value().(type) {
-	case float64:
+	switch a[0].(type) {
+	case *FloatValue:
 		return influxql.Float, nil
-	case int64:
+	case *IntegerValue:
 		return influxql.Integer, nil
-	case bool:
+	case *BooleanValue:
 		return influxql.Boolean, nil
-	case string:
+	case *StringValue:
 		return influxql.String, nil
 	}
 
@@ -237,7 +245,7 @@ func (f *FloatValue) Size() int {
 }
 
 func (f *FloatValue) String() string {
-	return fmt.Sprintf("%v %v", time.Unix(0, f.unixnano), f.Value())
+	return fmt.Sprintf("%v %v", time.Unix(0, f.unixnano), f.value)
 }
 
 func encodeFloatBlock(buf []byte, values []Value) ([]byte, error) {
@@ -257,7 +265,7 @@ func encodeFloatBlock(buf []byte, values []Value) ([]byte, error) {
 
 	for _, v := range values {
 		tsenc.Write(time.Unix(0, v.UnixNano()))
-		venc.Push(v.Value().(float64))
+		venc.Push(v.(*FloatValue).value)
 	}
 	venc.Finish()
 
@@ -384,7 +392,7 @@ func encodeBooleanBlock(buf []byte, values []Value) ([]byte, error) {
 
 	for _, v := range values {
 		tsenc.Write(time.Unix(0, v.UnixNano()))
-		venc.Write(v.Value().(bool))
+		venc.Write(v.(*BooleanValue).value)
 	}
 
 	// Encoded timestamp values
@@ -496,7 +504,7 @@ func encodeIntegerBlock(buf []byte, values []Value) ([]byte, error) {
 	vEnc := NewIntegerEncoder()
 	for _, v := range values {
 		tsEnc.Write(time.Unix(0, v.UnixNano()))
-		vEnc.Write(v.Value().(int64))
+		vEnc.Write(v.(*IntegerValue).value)
 	}
 
 	// Encoded timestamp values
@@ -607,7 +615,7 @@ func encodeStringBlock(buf []byte, values []Value) ([]byte, error) {
 	vEnc := NewStringEncoder()
 	for _, v := range values {
 		tsEnc.Write(time.Unix(0, v.UnixNano()))
-		vEnc.Write(v.Value().(string))
+		vEnc.Write(v.(*StringValue).value)
 	}
 
 	// Encoded timestamp values

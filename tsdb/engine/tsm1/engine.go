@@ -102,10 +102,6 @@ func NewEngine(path string, walPath string, opt tsdb.EngineOptions) tsdb.Engine 
 // Path returns the path the engine was opened with.
 func (e *Engine) Path() string { return e.path }
 
-// PerformMaintenance is for periodic maintenance of the store. A no-op for b1
-func (e *Engine) PerformMaintenance() {
-}
-
 // Index returns the database index.
 func (e *Engine) Index() *tsdb.DatabaseIndex {
 	e.mu.Lock()
@@ -132,6 +128,8 @@ func (e *Engine) Format() tsdb.EngineFormat {
 func (e *Engine) Open() error {
 	e.done = make(chan struct{})
 	e.Compactor.Cancel = e.done
+
+	e.Cache.Open()
 
 	if err := os.MkdirAll(e.path, 0777); err != nil {
 		return err
@@ -163,8 +161,15 @@ func (e *Engine) Open() error {
 	return nil
 }
 
-// Close closes the engine.
+// Close closes the engine. Subsequent calls to Close are a nop.
 func (e *Engine) Close() error {
+	e.mu.RLock()
+	if e.done == nil {
+		e.mu.RUnlock()
+		return nil
+	}
+	e.mu.RUnlock()
+
 	// Shutdown goroutines and wait.
 	close(e.done)
 	e.wg.Wait()
@@ -172,6 +177,9 @@ func (e *Engine) Close() error {
 	// Lock now and close everything else down.
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	e.done = nil // Ensures that the channel will not be closed again.
+
+	defer e.Cache.Close()
 
 	if err := e.FileStore.Close(); err != nil {
 		return err
@@ -435,7 +443,10 @@ func (e *Engine) WriteSnapshot() error {
 			return nil, nil, nil, err
 		}
 
-		snapshot := e.Cache.Snapshot()
+		snapshot, err := e.Cache.Snapshot()
+		if err != nil {
+			return nil, nil, nil, err
+		}
 
 		return segments, snapshot, e.Compactor.Clone(), nil
 	}()

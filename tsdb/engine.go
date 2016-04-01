@@ -16,6 +16,11 @@ import (
 var (
 	// ErrFormatNotFound is returned when no format can be determined from a path.
 	ErrFormatNotFound = errors.New("format not found")
+
+	// ErrUnknownEngineFormat is returned when the engine format is
+	// unknown. ErrUnknownEngineFormat is currently returned if a format
+	// other than tsm1 is encountered.
+	ErrUnknownEngineFormat = errors.New("unknown engine format")
 )
 
 // Engine represents a swappable storage engine for the shard.
@@ -32,9 +37,6 @@ type Engine interface {
 	DeleteSeries(keys []string) error
 	DeleteMeasurement(name string, seriesKeys []string) error
 	SeriesCount() (n int, err error)
-
-	// PerformMaintenance will get called periodically by the store
-	PerformMaintenance()
 
 	// Format will return the format for the engine
 	Format() EngineFormat
@@ -89,7 +91,7 @@ func NewEngine(path string, walPath string, options EngineOptions) (Engine, erro
 	if fi, err := os.Stat(path); err != nil {
 		return nil, err
 	} else if !fi.Mode().IsDir() {
-		return nil, errors.New("unknown engine type")
+		return nil, ErrUnknownEngineFormat
 	} else {
 		format = "tsm1"
 	}
@@ -105,10 +107,7 @@ func NewEngine(path string, walPath string, options EngineOptions) (Engine, erro
 
 // EngineOptions represents the options used to initialize the engine.
 type EngineOptions struct {
-	EngineVersion          string
-	MaxWALSize             int
-	WALFlushInterval       time.Duration
-	WALPartitionFlushDelay time.Duration
+	EngineVersion string
 
 	Config Config
 }
@@ -116,11 +115,8 @@ type EngineOptions struct {
 // NewEngineOptions returns the default options.
 func NewEngineOptions() EngineOptions {
 	return EngineOptions{
-		EngineVersion:          DefaultEngine,
-		MaxWALSize:             DefaultMaxWALSize,
-		WALFlushInterval:       DefaultWALFlushInterval,
-		WALPartitionFlushDelay: DefaultWALPartitionFlushDelay,
-		Config:                 NewConfig(),
+		EngineVersion: DefaultEngine,
+		Config:        NewConfig(),
 	}
 }
 

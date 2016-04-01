@@ -362,17 +362,22 @@ func TestParsePointMissingFieldValue(t *testing.T) {
 }
 
 func TestParsePointBadNumber(t *testing.T) {
-	_, err := models.ParsePointsString(`cpu,host=serverA,region=us-west value=1a`)
-	if err == nil {
-		t.Errorf(`ParsePoints("%s") mismatch. got nil, exp error`, `cpu,host=serverA,region=us-west value=1a`)
-	}
-	_, err = models.ParsePointsString(`cpu,host=serverA,region=us-west value=1ii`)
-	if err == nil {
-		t.Errorf(`ParsePoints("%s") mismatch. got nil, exp error`, `cpu,host=serverA,region=us-west value=1ii`)
-	}
-	_, err = models.ParsePointsString(`cpu,host=serverA,region=us-west value=1.0i`)
-	if err == nil {
-		t.Errorf(`ParsePoints("%s") mismatch. got nil, exp error`, `cpu,host=serverA,region=us-west value=1.0i`)
+	for _, tt := range []string{
+		"cpu v=- ",
+		"cpu v=-i ",
+		"cpu v=-. ",
+		"cpu v=. ",
+		"cpu v=1.0i ",
+		"cpu v=1ii ",
+		"cpu v=1a ",
+		"cpu v=-e-e-e ",
+		"cpu v=42+3 ",
+		"cpu v= ",
+	} {
+		_, err := models.ParsePointsString(tt)
+		if err == nil {
+			t.Errorf("Point %q should be invalid", tt)
+		}
 	}
 }
 
@@ -1784,5 +1789,20 @@ func TestNewPointsWithBytesWithCorruptData(t *testing.T) {
 func TestNewPointsRejectsEmptyFieldNames(t *testing.T) {
 	if _, err := models.NewPoint("foo", nil, models.Fields{"": 1}, time.Now()); err == nil {
 		t.Fatalf("new point with empty field name. got: nil, expected: error")
+	}
+}
+
+func TestNewPointsRejectsMaxKey(t *testing.T) {
+	var key string
+	for i := 0; i < 65536; i++ {
+		key += "a"
+	}
+
+	if _, err := models.NewPoint(key, nil, models.Fields{"value": 1}, time.Now()); err == nil {
+		t.Fatalf("new point with max key. got: nil, expected: error")
+	}
+
+	if _, err := models.ParsePointsString(fmt.Sprintf("%v value=1", key)); err == nil {
+		t.Fatalf("parse point with max key. got: nil, expected: error")
 	}
 }

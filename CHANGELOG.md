@@ -1,4 +1,24 @@
-## v0.11.0 [unreleased]
+## v0.11.1 [2016-03-31]
+
+### Bugfixes
+
+- [#6092](https://github.com/influxdata/influxdb/issues/6092): Upgrading directly from 0.9.6.1 to 0.11.0 fails
+- [#6129](https://github.com/influxdata/influxdb/pull/6129): Fix default continuous query lease host
+- [#6121](https://github.com/influxdata/influxdb/issues/6121): Fix panic: slice index out of bounds in TSM index
+- [#6168](https://github.com/influxdata/influxdb/pull/6168): Remove per measurement statistics
+
+## v0.11.0 [2016-03-22]
+
+### Release Notes
+
+There were some important breaking changes in this release. Here's a list of the important things to know before upgrading:
+
+* [SHOW SERIES output has changed](https://github.com/influxdata/influxdb/pull/5937). See [new output in this test diff](https://github.com/influxdata/influxdb/pull/5937/files#diff-0cb24c2b7420b4db507ee3496c371845L263).
+* [SHOW TAG VALUES output has changed](https://github.com/influxdata/influxdb/pull/5853)
+* JSON write endpoint is disabled by default and will be removed in the next release. You can [turn it back on](https://github.com/influxdata/influxdb/pull/5512) in this release.
+* b1/bz1 shards are no longer supported. You must migrate all old shards to TSM using [the migration tool](https://github.com/influxdata/influxdb/blob/master/cmd/influx_tsm/README.md).
+* On queries to create databases, retention policies, and users, the default behavior has changed to create `IF NOT EXISTS`. If they already exist, no error will be returned.
+* On queries with a selector like `min`, `max`, `first`, and `last` the time returned will be the time for the bucket of the group by window. [Selectors for the time for the specific point](https://github.com/influxdata/influxdb/issues/5926) will be added later.
 
 ### Features
 
@@ -21,6 +41,8 @@
 - [#5844](https://github.com/influxdata/influxdb/pull/5844): Tag TSM engine stats with database and retention policy
 - [#5593](https://github.com/influxdata/influxdb/issues/5593): Modify `SHOW TAG VALUES` output for the new query engine to normalize the output.
 - [#5862](https://github.com/influxdata/influxdb/pull/5862): Make Admin UI dynamically fetch both client and server versions
+- [#2715](https://github.com/influxdata/influxdb/issues/2715): Support using field regex comparisons in the WHERE clause
+- [#5737](https://github.com/influxdata/influxdb/pull/5737): Admin UI: Display results of multiple queries, not just the first query. Thanks @Vidhuran!
 
 ### Bugfixes
 
@@ -58,9 +80,28 @@
 - [#5865](https://github.com/influxdata/influxdb/issues/5865): Conversion to tsm fails with exceeds max index value
 - [#5924](https://github.com/influxdata/influxdb/issues/5924): Missing data after using influx\_tsm
 - [#5937](https://github.com/influxdata/influxdb/pull/5937): Rewrite SHOW SERIES to use query engine
+- [#5949](https://github.com/influxdata/influxdb/issues/5949): Return error message when improper types are used in SELECT
+- [#5244](https://github.com/influxdata/influxdb/issues/5244): panic: ensure it's safe to close engine multiple times.
+- [#5963](https://github.com/influxdata/influxdb/pull/5963): Fix possible deadlock
+- [#4688](https://github.com/influxdata/influxdb/issues/4688): admin UI doesn't display results for some SHOW queries
+- [#6006](https://github.com/influxdata/influxdb/pull/6006): Fix deadlock while running backups
+- [#5965](https://github.com/influxdata/influxdb/issues/5965): InfluxDB panic crashes while parsing "-" as Float
+- [#5835](https://github.com/influxdata/influxdb/issues/5835): Make CREATE USER default to IF NOT EXISTS
+- [#6042](https://github.com/influxdata/influxdb/issues/6042): CreateDatabase failure on Windows, regression from v0.11.0 RC @mvadu
+- [#5889](https://github.com/influxdata/influxdb/issues/5889): Fix writing partial TSM index when flush file fails
+
+## v0.10.3 [2016-03-09]
+
+### Bugfixes
+
+- [#5924](https://github.com/influxdata/influxdb/issues/5924): Missing data after using influx\_tsm
+- [#5594](https://github.com/influxdata/influxdb/pull/5594): Fix missing url params on lease redirect - @oldmantaiter
+- [#5716](https://github.com/influxdata/influxdb/pull/5716): models: improve handling of points with empty field names or with no fields.
 
 ## v0.10.2 [2016-03-03]
+
 ### Bugfixes
+
 - [#5719](https://github.com/influxdata/influxdb/issues/5719): Fix cache not deduplicating points
 - [#5699](https://github.com/influxdata/influxdb/issues/5699): Fix potential thread safety issue in cache @jonseymour
 - [#5832](https://github.com/influxdata/influxdb/issues/5832): tsm: cache: need to check that snapshot has been sorted @jonseymour
@@ -124,8 +165,9 @@ This release also changes how clusters are setup. The config file has changed so
 - [#5478](https://github.com/influxdata/influxdb/issues/5478): panic: interface conversion: interface is float64, not int64
 - [#5475](https://github.com/influxdata/influxdb/issues/5475): Ensure appropriate exit code returned for non-interactive use of CLI.
 - [#5479](https://github.com/influxdata/influxdb/issues/5479): Bringing up a node as a meta only node causes panic
-- [#5504](https://github.com/influxdata/influxdb/issues/5475): create retention policy on unexistant DB crash InfluxDB
+- [#5504](https://github.com/influxdata/influxdb/issues/5504): create retention policy on unexistant DB crash InfluxDB
 - [#5505](https://github.com/influxdata/influxdb/issues/5505): Clear authCache in meta.Client when password changes.
+- [#5244](https://github.com/influxdata/influxdb/issues/5244): panic: ensure it's safe to close engine multiple times.
 
 ## v0.9.6 [2015-12-09]
 

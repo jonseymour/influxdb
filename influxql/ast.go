@@ -352,8 +352,19 @@ func (a *Sources) UnmarshalBinary(buf []byte) error {
 }
 
 // IsSystemName returns true if name is an internal system name.
-// System names are prefixed with an underscore.
-func IsSystemName(name string) bool { return strings.HasPrefix(name, "_") }
+func IsSystemName(name string) bool {
+	switch name {
+	case "_fieldKeys",
+		"_measurements",
+		"_series",
+		"_tagKey",
+		"_tagKeys",
+		"_tags":
+		return true
+	default:
+		return false
+	}
+}
 
 // SortField represents a field to sort results by.
 type SortField struct {
@@ -1276,6 +1287,15 @@ func (s *SelectStatement) validateFields() error {
 	if len(ns) == 1 && ns[0] == "time" {
 		return fmt.Errorf("at least 1 non-time field must be queried")
 	}
+
+	for _, f := range s.Fields {
+		switch expr := f.Expr.(type) {
+		case *BinaryExpr:
+			if err := expr.validate(); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -1409,11 +1429,12 @@ func (s *SelectStatement) validateAggregates(tr targetRequirement) error {
 				if err != nil {
 					return fmt.Errorf("invalid group interval: %v", err)
 				}
-				if groupByInterval > 0 {
-					c, ok := expr.Args[0].(*Call)
-					if !ok {
-						return fmt.Errorf("aggregate function required inside the call to %s", expr.Name)
-					}
+
+				if c, ok := expr.Args[0].(*Call); ok && groupByInterval == 0 {
+					return fmt.Errorf("%s aggregate requires a GROUP BY interval", expr.Name)
+				} else if !ok && groupByInterval > 0 {
+					return fmt.Errorf("aggregate function required inside the call to %s", expr.Name)
+				} else if ok {
 					switch c.Name {
 					case "top", "bottom":
 						if err := s.validTopBottomAggr(c); err != nil {
@@ -1426,6 +1447,21 @@ func (s *SelectStatement) validateAggregates(tr targetRequirement) error {
 					default:
 						if exp, got := 1, len(c.Args); got != exp {
 							return fmt.Errorf("invalid number of arguments for %s, expected %d, got %d", c.Name, exp, got)
+						}
+
+						switch fc := c.Args[0].(type) {
+						case *VarRef:
+							// do nothing
+						case *Call:
+							if fc.Name != "distinct" {
+								return fmt.Errorf("expected field argument in %s()", c.Name)
+							}
+						case *Distinct:
+							if expr.Name != "count" {
+								return fmt.Errorf("expected field argument in %s()", c.Name)
+							}
+						default:
+							return fmt.Errorf("expected field argument in %s()", c.Name)
 						}
 					}
 				}
@@ -3033,6 +3069,52 @@ func (e *BinaryExpr) String() string {
 	return fmt.Sprintf("%s %s %s", e.LHS.String(), e.Op.String(), e.RHS.String())
 }
 
+func (e *BinaryExpr) validate() error {
+	v := binaryExprValidator{}
+	Walk(&v, e)
+	if v.err != nil {
+		return v.err
+	} else if v.calls && v.refs {
+		return errors.New("binary expressions cannot mix aggregates and raw fields")
+	}
+	return nil
+}
+
+type binaryExprValidator struct {
+	calls bool
+	refs  bool
+	err   error
+}
+
+func (v *binaryExprValidator) Visit(n Node) Visitor {
+	if v.err != nil {
+		return nil
+	}
+
+	switch n := n.(type) {
+	case *Call:
+		v.calls = true
+
+		if n.Name == "top" || n.Name == "bottom" {
+			v.err = fmt.Errorf("cannot use %s() inside of a binary expression", n.Name)
+			return nil
+		}
+
+		for _, expr := range n.Args {
+			switch e := expr.(type) {
+			case *BinaryExpr:
+				v.err = e.validate()
+				return nil
+			}
+		}
+		return nil
+	case *VarRef:
+		v.refs = true
+		return nil
+	}
+	return v
+}
+
 func BinaryExprName(expr *BinaryExpr) string {
 	v := binaryExprNameVisitor{}
 	Walk(&v, expr)
@@ -3485,6 +3567,8 @@ func Eval(expr Expr, m map[string]interface{}) interface{} {
 		return expr.Val
 	case *ParenExpr:
 		return Eval(expr.Expr, m)
+	case *RegexLiteral:
+		return expr.Val
 	case *StringLiteral:
 		return expr.Val
 	case *VarRef:
@@ -3570,12 +3654,19 @@ func evalBinaryExpr(expr *BinaryExpr, m map[string]interface{}) interface{} {
 			return lhs / rhs
 		}
 	case string:
-		rhs, _ := rhs.(string)
 		switch expr.Op {
 		case EQ:
-			return lhs == rhs
+			rhs, ok := rhs.(string)
+			return ok && lhs == rhs
 		case NEQ:
-			return lhs != rhs
+			rhs, ok := rhs.(string)
+			return ok && lhs != rhs
+		case EQREGEX:
+			rhs, ok := rhs.(*regexp.Regexp)
+			return ok && rhs.MatchString(lhs)
+		case NEQREGEX:
+			rhs, ok := rhs.(*regexp.Regexp)
+			return ok && !rhs.MatchString(lhs)
 		}
 	}
 	return nil
