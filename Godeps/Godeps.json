@@ -1,5 +1,5 @@
 {
-	"ImportPath": "github.com/influxdb/influxdb",
+	"ImportPath": "github.com/influxdata/influxdb",
 	"GoVersion": "go1.6",
 	"GodepVersion": "v60",
 	"Packages": [
@@ -33,8 +33,8 @@
 		},
 		{
 			"ImportPath": "github.com/boltdb/bolt",
-			"Comment": "v1.1.0-81-g0fd4c05",
-			"Rev": "0fd4c0547d204c7b1cad6db6f3adad5f2cf453e5"
+			"Comment": "v1.1.0-79-g871c8e4",
+			"Rev": "871c8e43d807c18ca5775cccbbe6384b5d13d6a6"
 		},
 		{
 			"ImportPath": "github.com/davecgh/go-spew/spew",
@@ -70,7 +70,7 @@
 			"Rev": "d1e82c1ec3f15ee991f7cc7ffd5b67ff6f5bbaee"
 		},
 		{
-			"ImportPath": "github.com/influxdb/usage-client/v1",
+			"ImportPath": "github.com/influxdata/usage-client/v1",
 			"Rev": "475977e68d79883d9c8d67131c84e4241523f452"
 		},
 		{
