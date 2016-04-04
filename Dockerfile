@@ -9,6 +9,7 @@ WORKDIR /app
 
 # copy binary into image
 COPY influxd /app/
+COPY influx /app/
 
 # Add influxd to the PATH
 ENV PATH=/app:$PATH
